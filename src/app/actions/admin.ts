@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/session";
+import { onClinicianVerified, safely } from "@/lib/automation/jobs";
 
-const RECHECK_DAYS = 90;
+import { RECHECK_DAYS } from "@/lib/automation/rules";
 
 export async function decide(form: FormData) {
   await requireAdmin();
@@ -22,6 +23,7 @@ export async function decide(form: FormData) {
         data: { status: "VERIFIED", checkedAt: now },
       }),
     ]);
+    await safely(onClinicianVerified(id));
   } else if (verdict === "reject") {
     await db.clinicianProfile.update({ where: { id }, data: { status: "REJECTED" } });
   }

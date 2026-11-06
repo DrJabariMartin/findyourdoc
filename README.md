@@ -38,8 +38,30 @@ npm run build
 | Only verified clinicians can enter the Lounge, apply to jobs or take bookings | `src/lib/session.ts` |
 | Anonymous posts reference a handle; the user-to-handle link lives only in `HandleVault` | `prisma/schema.prisma`, `src/app/actions/lounge.ts` |
 | Posts that look like they contain patient identifiers are held for a moderator | `src/lib/identifiers.ts` |
-| Verification is re-checked every 90 days | `src/app/actions/admin.ts` |
+| Verification is re-checked every 90 days, automatically where an NPI exists | `src/lib/automation/jobs.ts` |
 | No third-party scripts or ad pixels (strict Content Security Policy) | `next.config.ts` |
+
+## Automations
+
+Routine work runs by itself and every step is logged on the admin page (`/admin`). A person still makes the calls our policies reserve for people: approving a new member, publishing a held Lounge post, and reinstating a paused profile.
+
+| What happens | When | Code |
+|---|---|---|
+| NPPES registry check of name, profession, license state and number, shown to the admin as pass or a list of differences | At sign-up, and hourly for anyone not yet checked | `onClinicianSignup`, `precheck-pending` |
+| Welcome and "you're verified" emails | At sign-up and approval | `onClinicianSignup`, `onClinicianVerified` |
+| 90-day re-check: a clean NPPES result renews the date; any difference pauses the profile (and booking) for review and emails the member; a registry outage changes nothing | Hourly | `recheck-licenses` |
+| Credential expiry reminders at 60, 30 and 7 days, then marked expired | Hourly | `credential-reminders` |
+| Job alerts to verified clinicians whose profession and license state fit (no pay comparisons) | When a job is posted | `onJobPosted` |
+| Patient booking confirmation, and a reminder about 24 hours before | At booking, hourly | `onAppointmentBooked`, `appointment-reminders` |
+| Nudge clinicians to record past visits (so fees are right and no-shows are never charged) | Daily | `record-visit-nudges` |
+| Daily digest to admins of everything that needs a person | Daily | `admin-digest` |
+| Email delivery with retry, once per message | Hourly | `deliver-outbox` |
+
+The rules live in `src/lib/automation/rules.ts` (tested in `tests/automation.test.ts`); the jobs live in `src/lib/automation/jobs.ts`. Emails never include a visit reason or insurance.
+
+**Run them:** `npm run automations` (all jobs) or `npm run automations -- recheck-licenses`. In production, have any scheduler call `POST /api/automations?job=all` hourly with `Authorization: Bearer $AUTOMATION_SECRET`. Every job is safe to repeat.
+
+**Email:** set `EMAIL_TRANSPORT`. `log` prints emails (development); `hold` (the production default) keeps them queued. Connecting a HIPAA-eligible email provider with a signed BAA is a launch step that needs the founder's approval.
 
 ## Before real patients or clinicians use it
 
@@ -48,6 +70,6 @@ This is a first version. Before launch:
 - **Hosting:** HIPAA-eligible hosting and database with a signed business associate agreement. Appointment records contain protected health information. Switch Prisma's provider to `postgresql`.
 - **Separate the handle vault** into its own database with its own credentials.
 - **Email and SMS:** appointment confirmations and reminders (a HIPAA-compliant provider), plus email verification and password reset.
-- **Document upload** for the credential wallet, and automated primary-source license checks.
+- **Document upload** for the credential wallet, and state-board primary-source checks (the automated check today uses NPPES, which confirms identity and taxonomy but not license standing).
 - **Rate limiting** on sign-up, login and booking.
 - **Legal review** of pricing, terms, privacy policy and the booking consent text by healthcare counsel in the launch state.
