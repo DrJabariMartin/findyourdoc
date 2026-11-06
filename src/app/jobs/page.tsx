@@ -31,7 +31,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<{ t
         const m = listingMoney(j);
         const applied = Array.isArray(j.applications) && j.applications.length > 0;
         return (
-          <article key={j.id} className="card flex flex-col gap-3">
+          <article key={j.id} id={j.id} className="card flex flex-col gap-3 scroll-mt-20">
             <div className="flex flex-wrap justify-between gap-2">
               <div>
                 <h2 className="font-semibold text-lg">{j.title}</h2>

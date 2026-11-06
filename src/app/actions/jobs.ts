@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requirePractice, requireVerifiedClinician } from "@/lib/session";
 import { PROFESSIONS, STATES } from "@/lib/labels";
+import { onJobPosted, safely } from "@/lib/automation/jobs";
 
 export type JobState = { error?: string } | undefined;
 
@@ -27,7 +28,7 @@ export async function postJob(_: JobState, form: FormData): Promise<JobState> {
   const d = parsed.data;
   if (d.payMax < d.payMin) return { error: "The top of the pay range must be at least the bottom" };
   const payUnit = d.type === "PERMANENT" ? "YEAR" : "HOUR";
-  await db.job.create({
+  const job = await db.job.create({
     data: {
       practiceId: practice.id,
       type: d.type,
@@ -41,6 +42,8 @@ export async function postJob(_: JobState, form: FormData): Promise<JobState> {
       payMaxCents: Math.round(d.payMax * 100),
     },
   });
+  // Alert every verified clinician whose profession and license state fit.
+  await safely(onJobPosted(job.id));
   revalidatePath("/practice");
   revalidatePath("/jobs");
   redirect("/practice");

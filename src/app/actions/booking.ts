@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { requireVerifiedClinician } from "@/lib/session";
 import { bookingFeeCents } from "@/lib/fees";
 import { STATES } from "@/lib/labels";
+import { onAppointmentBooked, safely } from "@/lib/automation/jobs";
 
 export type BookState = { error?: string } | undefined;
 
@@ -27,6 +28,7 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
   const token = randomBytes(24).toString("base64url");
+  let appointmentId = "";
   try {
     await db.$transaction(async (tx) => {
       // Only one booking can win a slot: the update matches OPEN slots only.
@@ -35,7 +37,7 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
         data: { status: "BOOKED" },
       });
       if (claimed.count !== 1) throw new Error("taken");
-      await tx.appointment.create({
+      const appt = await tx.appointment.create({
         data: {
           slotId: d.slotId,
           patientName: d.patientName,
@@ -47,10 +49,12 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
           accessToken: token,
         },
       });
+      appointmentId = appt.id;
     });
   } catch {
     return { error: "Sorry, that time was just taken. Please choose another." };
   }
+  await safely(onAppointmentBooked(appointmentId));
   redirect(`/appointments/${token}`);
 }
 
