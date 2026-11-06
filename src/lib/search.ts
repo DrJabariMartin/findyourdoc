@@ -44,3 +44,36 @@ export function acceptsInsurance(plan: string, accepted: string | null): boolean
   if (!plan.trim() || /self|cash|none/i.test(plan)) return true;
   return (accepted ?? "").toLowerCase().split(",").some((a) => a.trim() && (a.includes(plan.toLowerCase().trim()) || plan.toLowerCase().includes(a.trim())));
 }
+
+// "Who can help with this": the plain-language answer shown before results,
+// so patients learn which kinds of clinicians treat their need. It names
+// professions only. It is not medical advice and never ranks anyone.
+const HELPERS: Record<string, string[]> = {
+  knee: ["orthopedic surgeons", "sports medicine physicians", "physical therapists"],
+  back: ["primary care clinicians", "spine and orthopedic specialists", "physical therapists"],
+  shoulder: ["orthopedic surgeons", "sports medicine physicians", "physical therapists"],
+  fracture: ["orthopedic surgeons", "urgent care clinicians"],
+  rehab: ["physical therapists", "occupational therapists"],
+  hand: ["hand surgeons", "occupational therapists"],
+  checkup: ["family physicians", "internists", "nurse practitioners"],
+  physical: ["family physicians", "internists", "nurse practitioners"],
+  cold: ["family physicians", "nurse practitioners", "physician assistants"],
+  flu: ["family physicians", "nurse practitioners", "physician assistants"],
+  skin: ["dermatologists"],
+  rash: ["dermatologists", "primary care clinicians"],
+  anxiety: ["psychiatrists", "psychiatric nurse practitioners", "counselors"],
+  depression: ["psychiatrists", "psychiatric nurse practitioners", "counselors"],
+  medication: ["pharmacists", "primary care clinicians"],
+  heart: ["cardiologists"],
+  pregnancy: ["obstetricians", "midwives"],
+};
+
+/** Common needs offered as one-tap starting points on the search page. */
+export const COMMON_NEEDS = ["Knee pain", "Back pain", "Checkup", "Physical therapy", "Skin rash", "Anxiety", "Flu or cold", "Medication review"];
+
+export function whoCanHelp(query: string): string[] {
+  const words = query.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 2);
+  const out = new Set<string>();
+  for (const w of words) for (const [term, list] of Object.entries(HELPERS)) if (w.startsWith(term)) list.forEach((x) => out.add(x));
+  return [...out];
+}
