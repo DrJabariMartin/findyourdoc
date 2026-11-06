@@ -30,6 +30,7 @@ const practiceSchema = z.object({
   practiceName: z.string().trim().min(2, "Enter the practice name"),
   city: z.string().trim().min(2, "Enter the city"),
   state: z.enum(STATES as [string, ...string[]]),
+  plan: z.enum(["SOLO", "GROUP", "CONCIERGE"]).default("SOLO"),
 });
 
 async function emailTaken(email: string) {
@@ -87,7 +88,7 @@ export async function signupPractice(_: FormState, form: FormData): Promise<Form
       email: d.email,
       passwordHash: await bcrypt.hash(d.password, 12),
       role: "PRACTICE",
-      memberships: { create: { practice: { create: { name: d.practiceName, city: d.city, state: d.state } } } },
+      memberships: { create: { practice: { create: { name: d.practiceName, city: d.city, state: d.state, plan: d.plan } } } },
     },
   });
   await startSession(user.id);

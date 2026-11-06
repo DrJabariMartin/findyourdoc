@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { fmtSlot } from "@/lib/time";
 import { PROFESSIONS, STATES } from "@/lib/labels";
-import { matchesCare, acceptsInsurance } from "@/lib/search";
+import { matchesCare, acceptsInsurance, whoCanHelp, COMMON_NEEDS } from "@/lib/search";
 import { dollars } from "@/lib/fees";
 
 type Q = { care?: string; state?: string; city?: string; insurance?: string; profession?: string };
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function Find({ searchParams }: { searchParams: Promise<Q> }) {
   const q = await searchParams;
   const care = q.care ?? "";
+  const helpers = whoCanHelp(care);
   const now = new Date();
   const people = await db.clinicianProfile.findMany({
     where: {
@@ -56,6 +57,20 @@ export default async function Find({ searchParams }: { searchParams: Promise<Q> 
         <label className="label">Insurance<input name="insurance" defaultValue={q.insurance ?? ""} className="field" placeholder="Plan name or self-pay" /></label>
         <button className="btn lg:col-start-6">Search</button>
       </form>
+      {!care && (
+        <nav aria-label="Common needs" className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted font-semibold">What do you need help with?</span>
+          {COMMON_NEEDS.map((n) => (
+            <Link key={n} href={`/find?care=${encodeURIComponent(n)}`} className="pill no-underline">{n}</Link>
+          ))}
+        </nav>
+      )}
+      {helpers.length > 0 && (
+        <p className="card text-ink-2">
+          <strong className="text-ink">Who can help with {care.toLowerCase()}:</strong> {helpers.join(", ")}. The results below are ordered by who can see you soonest.
+          This is a guide to finding the right kind of clinician, not medical advice. In an emergency, call 911.
+        </p>
+      )}
       <p className="text-sm text-muted">{results.length} {results.length === 1 ? "clinician" : "clinicians"} found</p>
       {results.map((p) => (
         <article key={p.id} className="card flex flex-wrap gap-x-6 gap-y-4">
