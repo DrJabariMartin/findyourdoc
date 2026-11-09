@@ -1,55 +1,76 @@
 # Launch setup: decisions and steps
 
-Decided 2026-11-09 so the automations can run in production. Nothing here has been bought or signed yet. Each step marked **Jabari** spends money or accepts a legal agreement, so it waits for him.
+Decided 2026-11-09 and re-checked against current vendor pages the same day. Nothing has been bought or signed. Each step marked **Jabari** spends money or accepts a legal agreement, so it waits for him.
 
 ## Decisions
 
 | Need | Choice | Why |
 | --- | --- | --- |
-| Hosting, database, email | **Amazon Web Services under the AWS Business Associate Addendum (BAA)** | One BAA covers the app server, the Postgres database, backups and email. The BAA is accepted online in AWS Artifact at no charge. Appointment records and patient emails are protected health information, so every service that touches them must be covered. |
-| Patient and member email | **Amazon SES** (`EMAIL_TRANSPORT="ses"`) | Covered by the same BAA. Already built into the app (`src/lib/automation/mailer.ts`). Plain-text emails only, and they never include a visit reason or insurance. |
-| App server | **AWS App Runner** running the Next.js app | Runs a container with no servers to manage. |
-| Database | **Amazon RDS for PostgreSQL**, encrypted, with automated backups | Switch Prisma's `provider` to `postgresql` when deploying. |
-| Hourly scheduler | **GitHub Actions** (`.github/workflows/automations.yml`) | Free within the private-repo allowance (about 720 of 2,000 minutes a month). The call carries only the secret, never patient data, so it doesn't need a BAA. |
-| Checks on every change | **GitHub Actions CI** (`.github/workflows/ci.yml`) | Runs lint, typecheck, tests and build on each pull request. |
+| Hosting, database, email, files | **AWS under the AWS Business Associate Addendum (BAA)** | One BAA, accepted online in AWS Artifact at no charge, covers the app, database, file storage and email. Appointment records, patient emails and credential documents all need BAA coverage. |
+| App server | **Amazon ECS Express Mode on AWS Fargate**, built from the repo's `Dockerfile` | One command creates the service, load balancer, HTTPS and auto scaling. Express Mode itself is free; you pay for Fargate and the load balancer. |
+| Database | **Amazon RDS for PostgreSQL** (small instance), encrypted, with automated backups | Switch Prisma's `provider` to `postgresql` when deploying. |
+| Credential documents | **Amazon S3** (encrypted, private bucket) | Fargate's disk is wiped on every restart, so the local `STORAGE_DIR` can't be used in production. `src/lib/storage.ts` needs an S3 version before launch. |
+| Patient and member email | **Amazon SES** (`EMAIL_TRANSPORT="ses"`) | HIPAA-eligible since July 2019 under the same BAA. Already built (`src/lib/automation/mailer.ts`). Emails are plain text and never include a visit reason or insurance. |
+| Hourly scheduler | **GitHub Actions** (`.github/workflows/automations.yml`) | About 720 of the free 2,000 private-repo minutes a month. The call carries only a secret, never patient data, so it needs no BAA. GitHub runs scheduled workflows only from the default branch, so it starts once this code is on `main`. |
+| Checks on every change | **GitHub Actions CI** (`.github/workflows/ci.yml`) | Lint, typecheck, tests and build on each pull request. |
 
-Considered and set aside:
-- **Vercel** offers a BAA only on its enterprise plan.
+### Corrected in the 2026-11-09 audit
+- **App Runner replaced.** The first version of this plan chose AWS App Runner. AWS no longer offers App Runner to new customers and points them to ECS Express Mode instead, so the plan now uses ECS Express Mode.
+- **Vercel note corrected.** The plan said Vercel signs a BAA only on its enterprise plan. Since September 2025, Vercel has offered a BAA to Pro teams as a paid add-on. AWS still wins here because one free BAA covers the database, files and email too, which Vercel doesn't host.
+- **File storage added.** Credential documents need S3, because a container's own disk isn't permanent.
+
+### Considered and set aside
+- **Vercel Pro with its BAA add-on.** It still needs a separate HIPAA database, file store and email provider, each with its own BAA and cost.
+- **Supabase.** HIPAA requires its Team plan plus a HIPAA add-on, which costs far more than this whole stack at launch.
 - **Postmark** and **SendGrid** don't sign BAAs.
-- **Paubox** and **Aptible** are HIPAA-ready, but each covers only part of the stack and costs more at this size.
+- **Paubox** and **Aptible** are HIPAA-ready but cost more at this size.
 - **Zapier** and **Make** can't carry patient data without a BAA.
 
-## Estimated monthly cost at launch
+## Estimated monthly cost at launch (us-east-1)
 
-These are estimates, not quotes. Check them in the AWS Pricing Calculator before approving.
+These are estimates from published rates, not quotes. Check them in the AWS Pricing Calculator before approving.
 
 | Item | Estimate |
 | --- | --- |
-| App Runner (1 vCPU, 2 GB) | about $25 to $50 |
-| RDS PostgreSQL (small instance, 20 GB, backups) | about $15 to $30 |
-| SES email | $0.10 per 1,000 emails, so a few dollars |
-| Domain and DNS (Route 53) | about $1 to $2, plus the domain itself |
+| Fargate task, 0.5 vCPU and 1 GB, always on | about $18 |
+| Application Load Balancer (hourly charge plus light traffic) | about $18 to $25 |
+| Public IPv4 addresses for the load balancer | about $7 |
+| RDS PostgreSQL db.t4g.micro (about $12) plus 20 GB storage and backups | about $15 to $20 |
+| S3, SES, Route 53, logs, container registry | about $3 to $8 |
 | GitHub Actions | $0 within the free allowance |
-| **Total** | **about $45 to $85 a month** |
+| **Total** | **about $60 to $80 a month** |
+
+The domain itself is extra, usually $10 to $20 a year.
 
 ## Steps
 
-1. **Jabari:** Create the AWS account in the company's name on the company card. This is spend.
-2. **Jabari:** In AWS Artifact, accept the AWS BAA for the account. This is a legal agreement.
-3. **Jabari:** Confirm the domain, and buy it if it isn't owned yet. This is spend.
-4. **Engineering:** Create the RDS database and the App Runner service, set environment variables from `.env.example`, and switch Prisma to `postgresql`.
-5. **Engineering:** Verify the domain in SES (DKIM, SPF, DMARC), then request SES production access. The SES sandbox only sends to verified addresses.
-6. **Engineering:** Set `EMAIL_TRANSPORT="ses"`, `EMAIL_FROM` and `AWS_REGION` on the app. Give the app's IAM role permission to call `ses:SendEmail` only.
-7. **Engineering:** Add the repository secrets `APP_URL` and `AUTOMATION_SECRET`. The hourly workflow starts on its next run.
-8. **Engineering:** Send a test booking to a staff address, then check the admin page's Automations section for "sent".
+1. **Jabari:** Create the AWS account in the company's name, on the company card. This is spend.
+2. **Jabari:** Accept the AWS BAA in AWS Artifact. This is a legal agreement.
+3. **Jabari:** Confirm the domain, or buy it if it isn't owned yet. This is spend.
+4. **Engineering:**
+   - Switch Prisma to `postgresql`.
+   - Move document storage to S3.
+   - Build the `Dockerfile` image and push it to Amazon ECR. The image hasn't been built yet: this sandbox has no Docker daemon.
+5. **Engineering:**
+   - Create the RDS database, the S3 bucket and the ECS Express Mode service.
+   - Set environment variables from `.env.example`.
+   - Give the task role only these permissions: `ses:SendEmail`, plus read and write on the one bucket.
+6. **Engineering:**
+   - Verify the domain in SES (DKIM, SPF, DMARC).
+   - Request SES production access. The SES sandbox only sends to verified addresses.
+   - Then set `EMAIL_TRANSPORT="ses"`, `EMAIL_FROM` and `AWS_REGION`.
+7. **Engineering:** Add the repository secrets `APP_URL` and `AUTOMATION_SECRET`, and merge to `main`. The hourly workflow then starts.
+8. **Engineering:**
+   - Make a test booking to a staff address.
+   - Check that the email was sent.
+   - Check that the admin page's Automations section shows the run.
 
-Steps 4 to 8 take about a day once steps 1 to 3 are done.
+Steps 4 to 8 take about two days once steps 1 to 3 are done.
 
 ## Still needed before real patients
 
-These come from the README and are unchanged:
 - Healthcare counsel reviews the terms, privacy policy and booking consent.
-- State-board primary-source checks.
-- Rate limiting.
-- Email verification and password reset.
+- State-board primary-source license checks.
+- Rate limits shared through the database or Redis once there's more than one server.
+- Email address verification.
 - Moving the handle vault to its own database.
