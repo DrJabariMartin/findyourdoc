@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireVerifiedClinician } from "@/lib/session";
-import { bookingFeeCents } from "@/lib/fees";
+import { bookingFeeCents, isGovernmentPlan } from "@/lib/fees";
 import { STATES } from "@/lib/labels";
 import { hit } from "@/lib/ratelimit";
 import { clientIp } from "@/lib/client-ip";
@@ -26,6 +26,7 @@ const bookSchema = z.object({
   insurance: z.string().trim().max(80).optional(),
   reason: z.string().trim().max(300).optional(),
   newPatient: z.enum(["yes", "no"]),
+  governmentPlan: z.literal("on").optional(),
   consent: z.literal("on", { errorMap: () => ({ message: "Please agree to the booking terms" }) }),
 });
 
@@ -52,6 +53,7 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
           insurance: d.insurance || null,
           reason: d.reason || null,
           newPatient: d.newPatient === "yes",
+          governmentPlan: d.governmentPlan === "on" || isGovernmentPlan(d.insurance),
           accessToken: token,
         },
       });

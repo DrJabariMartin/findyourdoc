@@ -45,7 +45,7 @@ test("anonymous label reveals role and region only", () => {
   assert.equal(anonLabel("ICU", "NURSE", "TX"), "Nurse, Texas");
 });
 
-import { bookingFeeCents } from "../src/lib/fees";
+import { bookingFeeCents, isGovernmentPlan } from "../src/lib/fees";
 
 test("booking fee only for completed new-patient visits found on FindYourDoc", () => {
   const base = { status: "COMPLETED", newPatient: true, source: "FINDYOURDOC" };
@@ -54,6 +54,12 @@ test("booking fee only for completed new-patient visits found on FindYourDoc", (
   assert.equal(bookingFeeCents({ ...base, status: "CANCELLED" }), 0);
   assert.equal(bookingFeeCents({ ...base, newPatient: false }), 0);
   assert.equal(bookingFeeCents({ ...base, source: "PRACTICE_SITE" }), 0);
+  assert.equal(bookingFeeCents({ ...base, governmentPlan: true }), 0);
+});
+
+test("government plans are recognized so they are never charged a booking fee", () => {
+  for (const p of ["Medicare", "Humana Medicare Advantage", "Georgia Medicaid", "PeachCare for Kids", "TRICARE Prime", "VA Community Care"]) assert.ok(isGovernmentPlan(p), p);
+  for (const p of ["Aetna", "Blue Cross", "Cigna", "", null]) assert.equal(isGovernmentPlan(p), false, String(p));
 });
 
 import { matchesCare, acceptsInsurance } from "../src/lib/search";
