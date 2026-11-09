@@ -64,6 +64,7 @@ model Credential {
   status      String           @default("PENDING") // PENDING | VERIFIED | NEEDED | EXPIRED
   expiresAt   DateTime?
   checkedAt   DateTime?
+  documents   CredentialDocument[]
 }
 
 // The anonymous handle vault. The link between a user and their handle lives
@@ -193,5 +194,29 @@ model Appointment {
   status       String           @default("BOOKED") // BOOKED | CANCELLED | COMPLETED | NO_SHOW
   accessToken  String           @unique // lets the patient view or cancel without an account
   feeCents     Int              @default(0) // set when the visit is completed
+  reminderSentAt DateTime?
   createdAt    DateTime         @default(now())
+}
+
+// One-time password reset links. Only a hash of the token is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Files a clinician uploads for verification. Stored outside the public
+// folder and served only to the owner and admins.
+model CredentialDocument {
+  id           String     @id @default(cuid())
+  credentialId String
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String     @unique
+  uploadedAt   DateTime   @default(now())
 }

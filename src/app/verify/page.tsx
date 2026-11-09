@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { UploadForm } from "./UploadForm";
 
 const KIND: Record<string, string> = {
   ID: "Government photo ID", LICENSE: "State license (primary source)", BOARD: "Board certification",
@@ -11,7 +12,7 @@ const STATUS: Record<string, string> = { VERIFIED: "Verified", PENDING: "Checkin
 export default async function Verify() {
   const user = await requireUser();
   if (!user.clinician) redirect("/");
-  const creds = await db.credential.findMany({ where: { clinicianId: user.clinician.id } });
+  const creds = await db.credential.findMany({ where: { clinicianId: user.clinician.id }, include: { documents: { orderBy: { uploadedAt: "desc" } } } });
   const done = creds.filter((c) => c.status === "VERIFIED").length;
   const s = user.clinician.status;
   return (
@@ -26,13 +27,21 @@ export default async function Verify() {
       </p>
       <div className="card flex flex-col">
         {creds.map((c) => (
-          <div key={c.id} className="flex justify-between py-3 border-t border-line first:border-t-0">
-            <span>{KIND[c.kind] ?? c.kind}</span>
-            <span className={c.status === "VERIFIED" ? "font-semibold text-brand" : "font-semibold text-warn"}>{STATUS[c.status] ?? c.status}</span>
+          <div key={c.id} className="flex flex-col gap-1 py-3 border-t border-line first:border-t-0">
+            <div className="flex justify-between">
+              <span>{KIND[c.kind] ?? c.kind}</span>
+              <span className={c.status === "VERIFIED" ? "font-semibold text-brand" : "font-semibold text-warn"}>{STATUS[c.status] ?? c.status}</span>
+            </div>
+            {c.documents.map((d) => (
+              <a key={d.id} href={`/documents/${d.id}`} className="text-sm" target="_blank" rel="noopener">{d.fileName}</a>
+            ))}
           </div>
         ))}
-        <p className="text-sm text-muted pt-3">{done} of {creds.length} ready. Document upload arrives in the next release; for now our team collects documents by secure email.</p>
+        <p className="text-sm text-muted pt-3">{done} of {creds.length} ready.</p>
       </div>
+      {creds.some((c) => c.status !== "VERIFIED") && (
+        <UploadForm options={creds.filter((c) => c.status !== "VERIFIED").map((c) => ({ id: c.id, label: KIND[c.kind] ?? c.kind }))} />
+      )}
     </div>
   );
 }

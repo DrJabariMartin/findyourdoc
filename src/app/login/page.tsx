@@ -15,6 +15,7 @@ export default function Login() {
         {state?.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}
         <button className="btn" disabled={pending}>{pending ? "Logging in…" : "Log in"}</button>
       </form>
+      <p className="text-sm"><Link href="/forgot" className="text-brand underline">Forgot your password?</Link></p>
       <p className="text-sm">New here? <Link href="/signup" className="text-brand underline">Join free</Link></p>
     </div>
   );

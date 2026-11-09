@@ -22,10 +22,24 @@ npm run dev                 # http://localhost:3000
 Sample logins (password `demo-password-123`): `admin@example.com` (verification queue), `ortho@example.com`, `pt@example.com`, `np@example.com` (verified clinicians), `pending@example.com` (awaiting verification), `practice@example.com` (practice).
 
 ```bash
-npm test        # pricing, fee, search, identifier and time-zone rules
+npm test        # pricing, fee, identifier, time-zone, rate-limit, email and reminder rules
 npm run lint
 npm run build
+npm run reminders   # sends reminders for visits in the next 24 hours; schedule it every 15 minutes
 ```
+
+Every pull request runs lint, type checks, tests and a build in GitHub Actions (`.github/workflows/ci.yml`).
+
+### Settings
+
+| Variable | What it does |
+|---|---|
+| `DATABASE_URL` | Database connection. SQLite locally, Postgres in production. |
+| `SESSION_SECRET` | Signs login cookies. At least 16 random characters. |
+| `STORAGE_DIR` | Where credential documents are stored. Keep it outside the web root. |
+| `APP_URL` | Public address used in email links. |
+| `EMAIL_PROVIDER` | `console` prints emails to the server log. Any other value fails until a real provider is wired into `src/lib/email.ts`. |
+| `EMAIL_FROM` | Sender address for outgoing email. |
 
 ## How the rules are enforced in code
 
@@ -40,6 +54,12 @@ npm run build
 | Posts that look like they contain patient identifiers are held for a moderator | `src/lib/identifiers.ts` |
 | Verification is re-checked every 90 days | `src/app/actions/admin.ts` |
 | No third-party scripts or ad pixels (strict Content Security Policy) | `next.config.ts` |
+| Emails never include the visit reason or insurance; clinician emails include no patient details | `src/lib/email.ts` |
+| Each visit gets one reminder, even if the job runs twice at once | `src/lib/reminders.ts` |
+| A cancelled time opens up again for other patients | `reopen` in `src/app/actions/booking.ts` |
+| Sign-up, login, password reset, booking and uploads are rate limited | `src/lib/ratelimit.ts` |
+| Credential documents are checked by content (PDF, JPG, PNG only, 10 MB max) and open only for their owner or an admin | `src/app/actions/verify.ts`, `src/app/documents/[id]/route.ts` |
+| Password reset links are single use, expire in 1 hour, and are stored only as a hash | `src/app/actions/auth.ts` |
 
 ## Before real patients or clinicians use it
 
@@ -47,7 +67,9 @@ This is a first version. Before launch:
 
 - **Hosting:** HIPAA-eligible hosting and database with a signed business associate agreement. Appointment records contain protected health information. Switch Prisma's provider to `postgresql`.
 - **Separate the handle vault** into its own database with its own credentials.
-- **Email and SMS:** appointment confirmations and reminders (a HIPAA-compliant provider), plus email verification and password reset.
-- **Document upload** for the credential wallet, and automated primary-source license checks.
-- **Rate limiting** on sign-up, login and booking.
+- **Email and SMS provider** that signs a business associate agreement, wired into `send()` in `src/lib/email.ts`. Add SMS reminders and email address verification.
+- **Document storage:** move credential documents from local disk to encrypted object storage covered by the same agreement.
+- **Automated primary-source license checks** to speed up the verification queue.
+- **Shared rate limits:** with more than one server, move the counters from memory to Redis or the database.
+- **Scheduler:** run `npm run reminders` every 15 minutes (a cron job or the host's scheduler).
 - **Legal review** of pricing, terms, privacy policy and the booking consent text by healthcare counsel in the launch state.

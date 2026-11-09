@@ -6,7 +6,7 @@ import { PROFESSIONS } from "@/lib/labels";
 export default async function Admin() {
   await requireAdmin();
   const [pending, flagged, due] = await Promise.all([
-    db.clinicianProfile.findMany({ where: { status: "PENDING" }, include: { user: true }, orderBy: { createdAt: "asc" } }),
+    db.clinicianProfile.findMany({ where: { status: "PENDING" }, include: { user: true, credentials: { include: { documents: true } } }, orderBy: { createdAt: "asc" } }),
     db.post.findMany({ where: { flagged: true }, include: { room: true }, orderBy: { createdAt: "asc" } }),
     db.clinicianProfile.count({ where: { status: "VERIFIED", nextRecheckAt: { lte: new Date() } } }),
   ]);
@@ -25,6 +25,9 @@ export default async function Admin() {
             <div>
               <div className="font-semibold">{c.user.name} · {PROFESSIONS[c.profession]}, {c.specialty}</div>
               <div className="text-sm text-muted">{c.licenseState} license {c.licenseNumber}{c.npi ? ` · NPI ${c.npi}` : " · no NPI given"} · {c.user.email}</div>
+              {c.credentials.flatMap((cr) => cr.documents.map((d) => (
+                <a key={d.id} href={`/documents/${d.id}`} className="text-sm block" target="_blank" rel="noopener">{cr.kind}: {d.fileName}</a>
+              )))}
             </div>
             <form action={decide} className="flex gap-2">
               <input type="hidden" name="clinicianId" value={c.id} />

@@ -8,6 +8,13 @@ import { db } from "@/lib/db";
 import { requireVerifiedClinician } from "@/lib/session";
 import { bookingFeeCents } from "@/lib/fees";
 import { STATES } from "@/lib/labels";
+import { hit } from "@/lib/ratelimit";
+import { clientIp } from "@/lib/client-ip";
+import { bookingCancelled, bookingConfirmation, newBookingForClinician, send } from "@/lib/email";
+import { visitFacts } from "@/lib/visit";
+import { fmtSlot } from "@/lib/time";
+
+const withClinician = { slot: { include: { clinician: { include: { user: { select: { name: true, email: true } } } } } } } as const;
 
 export type BookState = { error?: string } | undefined;
 
@@ -26,6 +33,7 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
   const parsed = bookSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
+  if (!hit("booking", await clientIp())) return { error: "Too many bookings from this connection. Please try again later." };
   const token = randomBytes(24).toString("base64url");
   try {
     await db.$transaction(async (tx) => {
@@ -51,18 +59,33 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
   } catch {
     return { error: "Sorry, that time was just taken. Please choose another." };
   }
+  const appt = await db.appointment.findUnique({ where: { accessToken: token }, include: withClinician });
+  if (appt) {
+    const c = appt.slot.clinician;
+    await send(bookingConfirmation(appt.patientEmail, visitFacts(appt)));
+    await send(newBookingForClinician(c.user.email, fmtSlot(appt.slot.startsAt, c.officeState, "long")));
+  }
   redirect(`/appointments/${token}`);
+}
+
+/**
+ * A cancelled appointment keeps its slot for the record, so the same time is
+ * offered again as a fresh slot.
+ */
+async function reopen(slot: { id: string; clinicianId: string; startsAt: Date; minutes: number }) {
+  await db.availabilitySlot.update({ where: { id: slot.id }, data: { status: "REMOVED" } });
+  if (slot.startsAt > new Date()) {
+    await db.availabilitySlot.create({ data: { clinicianId: slot.clinicianId, startsAt: slot.startsAt, minutes: slot.minutes } });
+  }
 }
 
 export async function cancelByPatient(form: FormData) {
   const token = String(form.get("token"));
-  const appt = await db.appointment.findUnique({ where: { accessToken: token }, include: { slot: true } });
+  const appt = await db.appointment.findUnique({ where: { accessToken: token }, include: withClinician });
   if (!appt || appt.status !== "BOOKED") return;
-  await db.$transaction([
-    db.appointment.update({ where: { id: appt.id }, data: { status: "CANCELLED" } }),
-    // Reopen the time so another patient can take it.
-    db.availabilitySlot.update({ where: { id: appt.slotId }, data: { status: appt.slot.startsAt > new Date() ? "OPEN" : "REMOVED" } }),
-  ]);
+  await db.appointment.update({ where: { id: appt.id }, data: { status: "CANCELLED" } });
+  await reopen(appt.slot);
+  await send(bookingCancelled(appt.patientEmail, visitFacts(appt)));
   revalidatePath(`/appointments/${token}`);
 }
 
@@ -150,11 +173,16 @@ export async function recordVisit(form: FormData) {
   const id = String(form.get("appointmentId"));
   const outcome = String(form.get("outcome"));
   if (!["COMPLETED", "NO_SHOW", "CANCELLED"].includes(outcome)) return;
-  const appt = await db.appointment.findFirst({ where: { id, slot: { clinicianId: user.clinician.id } } });
+  const appt = await db.appointment.findFirst({ where: { id, slot: { clinicianId: user.clinician.id } }, include: withClinician });
   if (!appt || appt.status !== "BOOKED") return;
   await db.appointment.update({
     where: { id },
     data: { status: outcome, feeCents: bookingFeeCents({ ...appt, status: outcome }) },
   });
+  // The office cancelled: tell the patient and reopen the time if it's still ahead.
+  if (outcome === "CANCELLED") {
+    await reopen(appt.slot);
+    await send(bookingCancelled(appt.patientEmail, visitFacts(appt)));
+  }
   revalidatePath("/schedule");
 }
