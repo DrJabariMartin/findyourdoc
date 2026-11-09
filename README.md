@@ -59,13 +59,13 @@ Routine work runs by itself and every step is logged on the admin page (`/admin`
 
 The rules live in `src/lib/automation/rules.ts` (tested in `tests/automation.test.ts`); the jobs live in `src/lib/automation/jobs.ts`. Emails never include a visit reason or insurance.
 
-**Run them:** `npm run automations` (all jobs) or `npm run automations -- recheck-licenses`. In production, have any scheduler call `POST /api/automations?job=all` hourly with `Authorization: Bearer $AUTOMATION_SECRET`. Every job is safe to repeat.
+**Run them:** `npm run automations` (all jobs) or `npm run automations -- recheck-licenses`. In production, the GitHub Actions workflow `.github/workflows/automations.yml` calls `POST /api/automations?job=all` every hour with `Authorization: Bearer $AUTOMATION_SECRET`. It skips itself until the repository secrets `APP_URL` and `AUTOMATION_SECRET` are set. Every job is safe to repeat.
 
-**Email:** set `EMAIL_TRANSPORT`. `log` prints emails (development); `hold` (the production default) keeps them queued. Connecting a HIPAA-eligible email provider with a signed BAA is a launch step that needs the founder's approval.
+**Email:** set `EMAIL_TRANSPORT`. `log` prints emails (development); `hold` (the production default) keeps them queued; `ses` sends through Amazon SES and also needs `EMAIL_FROM` and `AWS_REGION`. Use `ses` only after the AWS BAA is accepted and the sending domain is verified. See [docs/launch.md](docs/launch.md).
 
 ## Before real patients or clinicians use it
 
-This is a first version. Before launch:
+This is a first version. The chosen launch setup, costs and steps are in [docs/launch.md](docs/launch.md). Before launch:
 
 - **Hosting:** HIPAA-eligible hosting and database with a signed business associate agreement. Appointment records contain protected health information. Switch Prisma's provider to `postgresql`.
 - **Separate the handle vault** into its own database with its own credentials.
