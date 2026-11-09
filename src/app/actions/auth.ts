@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { startSession, endSession } from "@/lib/session";
 import { lookupNpi } from "@/lib/npi";
 import { anonLabel, PROFESSIONS, STATES } from "@/lib/labels";
+import { onClinicianSignup, safely } from "@/lib/automation/jobs";
 import { hit } from "@/lib/ratelimit";
 import { clientIp } from "@/lib/client-ip";
 import { appUrl, passwordReset, send } from "@/lib/email";
@@ -78,7 +79,10 @@ export async function signupClinician(_: FormState, form: FormData): Promise<For
         },
       },
     },
+    include: { clinician: true },
   });
+  // Registry check + welcome email run straight away; a person still approves.
+  if (user.clinician) await safely(onClinicianSignup(user.clinician.id));
   await startSession(user.id);
   redirect("/verify");
 }

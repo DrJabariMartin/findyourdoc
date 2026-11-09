@@ -1,7 +1,11 @@
-// Outgoing email. Every message goes through send(), so swapping in a real
-// provider is a one-file change. Before launch, use a provider that signs a
-// HIPAA business associate agreement: appointment emails reveal that a person
-// has a visit with a clinician.
+import { randomUUID } from "node:crypto";
+import { transport } from "./automation/mailer";
+
+// Outgoing transactional email (bookings, reminders, password reset). It is
+// delivered through the same transport as the automations
+// (src/lib/automation/mailer.ts: log, hold or Amazon SES under the AWS BAA).
+// Appointment emails reveal that a person has a visit with a clinician, so
+// they only leave through a provider covered by a BAA.
 //
 // Messages carry the minimum needed: no visit reason, no insurance details.
 
@@ -14,15 +18,24 @@ export function sentEmails(): readonly Email[] {
   return outbox;
 }
 
-export async function send(msg: Email): Promise<void> {
-  const provider = process.env.EMAIL_PROVIDER ?? "console";
+/**
+ * Sends now when the transport can. If it is holding email (production before
+ * SES is on) or delivery fails, the message goes into the outbox and the
+ * hourly deliver-outbox job retries it, so nothing is lost.
+ */
+export async function send(msg: Email, kind = "TRANSACTIONAL"): Promise<void> {
   outbox.push(msg);
   if (outbox.length > 200) outbox.shift();
-  if (provider === "console") {
-    if (process.env.NODE_ENV !== "test") console.log(`[email] to=${msg.to} subject="${msg.subject}"\n${msg.text}\n`);
-    return;
+  const email = { to: msg.to, subject: msg.subject, body: msg.text };
+  try {
+    if (await transport().send(email)) return;
+  } catch (e) {
+    console.error(`[email] delivery failed, queued for retry: ${(e as Error).message}`);
   }
-  throw new Error(`EMAIL_PROVIDER "${provider}" is not set up yet`);
+  const { db } = await import("./db");
+  await db.notification.create({
+    data: { dedupeKey: `direct:${randomUUID()}`, toEmail: msg.to, kind, subject: msg.subject, body: msg.text },
+  });
 }
 
 export function appUrl(path: string): string {
