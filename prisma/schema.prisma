@@ -190,6 +190,7 @@ model Appointment {
   insurance    String?          // plan name, or null for self-pay
   reason       String?          // short, optional
   newPatient   Boolean          @default(true)
+  governmentPlan Boolean        @default(false) // Medicare, Medicaid, TRICARE, VA etc.: never charged a booking fee
   source       String           @default("FINDYOURDOC") // FINDYOURDOC | PRACTICE_SITE
   status       String           @default("BOOKED") // BOOKED | CANCELLED | COMPLETED | NO_SHOW
   accessToken  String           @unique // lets the patient view or cancel without an account
