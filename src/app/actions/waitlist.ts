@@ -3,8 +3,9 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { STATES } from "@/lib/labels";
+import { depositLink } from "@/lib/deposit";
 
-export type WaitlistState = { error?: string; done?: boolean } | undefined;
+export type WaitlistState = { error?: string; done?: boolean; depositUrl?: string } | undefined;
 
 const schema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
@@ -24,5 +25,7 @@ export async function joinWaitlist(_: WaitlistState, form: FormData): Promise<Wa
     create: { email: d.email, role: d.role, state: d.state, city: d.city || null, depositIntent },
     update: { city: d.city || null, depositIntent },
   });
-  return { done: true };
+  // Deposit-ready practices get the payment link straight away, once deposits are on.
+  const depositUrl = depositIntent ? depositLink(process.env, d.email) : null;
+  return { done: true, ...(depositUrl ? { depositUrl } : {}) };
 }

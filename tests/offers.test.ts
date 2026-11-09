@@ -53,3 +53,13 @@ test("waitlist ranks deposit-ready practices first", () => {
   assert.equal(rows[1].practices, 5);
   assert.equal(rows[1].patients, 50);
 });
+
+test("founding deposit link stays off until enabled with a Stripe https link", async () => {
+  const { depositLink } = await import("../src/lib/deposit");
+  assert.equal(depositLink({}), null);
+  assert.equal(depositLink({ DEPOSITS_ENABLED: "false", FOUNDING_DEPOSIT_URL: "https://buy.stripe.com/abc" }), null);
+  assert.equal(depositLink({ DEPOSITS_ENABLED: "true" }), null);
+  assert.equal(depositLink({ DEPOSITS_ENABLED: "true", FOUNDING_DEPOSIT_URL: "http://buy.stripe.com/abc" }), null);
+  assert.equal(depositLink({ DEPOSITS_ENABLED: "true", FOUNDING_DEPOSIT_URL: "https://evil.example/abc" }), null);
+  assert.equal(depositLink({ DEPOSITS_ENABLED: "true", FOUNDING_DEPOSIT_URL: "https://buy.stripe.com/abc" }, "a@b.org"), "https://buy.stripe.com/abc?prefilled_email=a%40b.org");
+});

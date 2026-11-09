@@ -1,4 +1,7 @@
 import WaitlistForm from "./WaitlistForm";
+import { depositLink } from "@/lib/deposit";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Waitlist · FindYourDoc" };
 
@@ -13,7 +16,7 @@ export default async function Waitlist({ searchParams }: { searchParams: Promise
           Tell us where you are. The states with the most patients, clinicians and practices waiting open next.
         </p>
       </div>
-      <WaitlistForm initialRole={(as ?? "").toUpperCase()} />
+      <WaitlistForm initialRole={(as ?? "").toUpperCase()} depositsLive={depositLink(process.env) !== null} />
     </div>
   );
 }
