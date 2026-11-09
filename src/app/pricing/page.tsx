@@ -23,7 +23,7 @@ const objections = [
   ["How is this cheaper than a recruiter?", `A recruited physician typically costs $72,000 to $168,000. Here a permanent hire is ${dollars(PERMANENT_HIRE_FEE_CENTS)} flat, charged only when the clinician signs.`],
   ["We already use an agency.", "Keep it. Post the same role here too. You pay a hire or locums fee only when you hire through FindYourDoc."],
   ["What stops us hiring a locum directly later?", "Nothing. There are no non-competes. The fee to convert a locum to permanent is published and falls every month to $0 after 12 months."],
-  ["Are the clinicians real?", "Every clinician passes ID, license, board and education checks, re-checked every 90 days, and a person on our team approves each one."],
+  ["Are the clinicians real?", "Every clinician passes ID, license, and board or education checks, re-checked every 90 days, and a person on our team approves each one."],
   ["My partners need to sign off.", "Send them this page. Every price is here, and nothing is hidden in a contract. We are happy to join a 15-minute call with them."],
   ["What does the clinician actually get paid?", "Every listing shows what you pay, what the clinician takes home and our fee. Locums keep 100% of their rate; our 12% is added on top."],
 ];
@@ -43,7 +43,7 @@ export default function Pricing() {
           const core = p.id === "GROUP";
           return (
             <div key={p.id} className={`card flex flex-col gap-3 ${core ? "border-brand! border-2" : ""}`}>
-              {core && <span className="pill self-start">Most practices choose this</span>}
+              {core && <span className="pill self-start">Our core plan</span>}
               <h2 className="font-display font-extrabold text-2xl">{p.name}</h2>
               <div><span className="font-display font-extrabold text-3xl">{dollars(p.monthlyCents)}</span><span className="text-muted"> a month</span></div>
               <p className="text-ink-2">{p.who}</p>

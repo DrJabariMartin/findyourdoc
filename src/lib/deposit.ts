@@ -1,4 +1,4 @@
-// Founding-practice deposit: refundable $99, credited to the first month.
+// Founding-practice deposit: refundable $99, credited to the first paid month.
 // Off until counsel signs off on pricing and the company's Stripe account is
 // set up. Turning it on needs both DEPOSITS_ENABLED="true" and a Stripe
 // Payment Link in FOUNDING_DEPOSIT_URL. Only practices are ever asked.

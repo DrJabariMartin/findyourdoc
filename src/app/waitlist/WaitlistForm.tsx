@@ -19,7 +19,7 @@ export default function WaitlistForm({ initialRole, depositsLive }: { initialRol
         <p>You&apos;re on the list. We&apos;ll email you once, when we open in your state. Nothing else.</p>
         {state.depositUrl && (
           <>
-            <p>To hold your founding-practice spot, pay the refundable $99 deposit. It comes off your first month, and we refund it in full whenever you ask.</p>
+            <p>To hold your founding-practice spot, pay the refundable $99 deposit. It comes off your first paid month, and we refund it in full whenever you ask.</p>
             <a href={state.depositUrl} className="btn self-start" rel="noopener noreferrer">Pay the $99 deposit</a>
           </>
         )}
@@ -51,7 +51,7 @@ export default function WaitlistForm({ initialRole, depositsLive }: { initialRol
           <input type="checkbox" name="depositIntent" value="yes" className="mt-1" />
           <span>
             {depositsLive
-              ? "Hold a founding-practice spot in my state with a refundable $99 deposit. It comes off the first month, and you can get it back in full at any time."
+              ? "Hold a founding-practice spot in my state with a refundable $99 deposit. It comes off the first paid month, and you can get it back in full at any time."
               : "I would put down a refundable $99 deposit to hold a founding-practice spot in my state. (We don't take any money now. This only tells us how serious demand is.)"}
           </span>
         </label>
