@@ -12,8 +12,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: "file:./ci.db"
-      SESSION_SECRET: "ci-only-session-secret-not-used-in-production"
+      DATABASE_URL: file:./ci.db
+      SESSION_SECRET: ci-only-secret-not-used-anywhere-else
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,7 +21,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx prisma generate
+      - run: npx prisma db push --skip-generate && npx prisma generate
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm test

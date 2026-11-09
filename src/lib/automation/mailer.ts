@@ -20,7 +20,7 @@ export type Transport = {
 const logTransport: Transport = {
   name: "log",
   async send(email) {
-    console.log(`[email] to=${email.to} subject="${email.subject}"`);
+    if (process.env.NODE_ENV !== "test") console.log(`[email] to=${email.to} subject="${email.subject}"`);
     return true;
   },
 };

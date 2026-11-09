@@ -22,10 +22,25 @@ npm run dev                 # http://localhost:3000
 Sample logins (password `demo-password-123`): `admin@example.com` (verification queue), `ortho@example.com`, `pt@example.com`, `np@example.com` (verified clinicians), `pending@example.com` (awaiting verification), `practice@example.com` (practice).
 
 ```bash
-npm test        # pricing, fee, search, identifier and time-zone rules
+npm test        # pricing, fee, identifier, time-zone, rate-limit, email and reminder rules
 npm run lint
 npm run build
+npm run automations # runs every automation once (reminders, re-checks, email delivery); production runs it hourly
 ```
+
+Every pull request runs lint, type checks, tests and a build in GitHub Actions (`.github/workflows/ci.yml`).
+
+### Settings
+
+| Variable | What it does |
+|---|---|
+| `DATABASE_URL` | Database connection. SQLite locally, Postgres in production. |
+| `SESSION_SECRET` | Signs login cookies. At least 16 random characters. |
+| `STORAGE_DIR` | Where credential documents are stored. Keep it outside the web root. |
+| `APP_URL` | Public address used in email links. |
+| `EMAIL_TRANSPORT` | `log` prints emails to the server log (development). `hold` keeps them queued (production default). `ses` sends through Amazon SES; see [docs/launch.md](docs/launch.md). |
+| `AUTOMATION_SECRET` | Protects `/api/automations`. At least 24 random characters. |
+| `EMAIL_FROM` | Sender address for outgoing email. |
 
 ## How the rules are enforced in code
 
@@ -40,6 +55,12 @@ npm run build
 | Posts that look like they contain patient identifiers are held for a moderator | `src/lib/identifiers.ts` |
 | Verification is re-checked every 90 days, automatically where an NPI exists | `src/lib/automation/jobs.ts` |
 | No third-party scripts or ad pixels (strict Content Security Policy) | `next.config.ts` |
+| Emails never include the visit reason or insurance; clinician emails include no patient details | `src/lib/email.ts` |
+| Each visit gets one reminder, even if the job runs twice at once | `src/lib/reminders.ts` |
+| A cancelled time opens up again for other patients | `reopen` in `src/app/actions/booking.ts` |
+| Sign-up, login, password reset, booking and uploads are rate limited | `src/lib/ratelimit.ts` |
+| Credential documents are checked by content (PDF, JPG, PNG only, 10 MB max) and open only for their owner or an admin | `src/app/actions/verify.ts`, `src/app/documents/[id]/route.ts` |
+| Password reset links are single use, expire in 1 hour, and are stored only as a hash | `src/app/actions/auth.ts` |
 
 ## Automations
 
@@ -52,10 +73,10 @@ Routine work runs by itself and every step is logged on the admin page (`/admin`
 | 90-day re-check: a clean NPPES result renews the date; any difference pauses the profile (and booking) for review and emails the member; a registry outage changes nothing | Hourly | `recheck-licenses` |
 | Credential expiry reminders at 60, 30 and 7 days, then marked expired | Hourly | `credential-reminders` |
 | Job alerts to verified clinicians whose profession and license state fit (no pay comparisons) | When a job is posted | `onJobPosted` |
-| Patient booking confirmation, and a reminder about 24 hours before | At booking, hourly | `onAppointmentBooked`, `appointment-reminders` |
+| Patient booking confirmation and clinician notice, then one reminder in the 24 hours before the visit | At booking, hourly | `bookSlot`, `appointment-reminders` (`src/lib/reminders.ts`) |
 | Nudge clinicians to record past visits (so fees are right and no-shows are never charged) | Daily | `record-visit-nudges` |
 | Daily digest to admins of everything that needs a person | Daily | `admin-digest` |
-| Email delivery with retry, once per message | Hourly | `deliver-outbox` |
+| Email delivery with retry, once per message; emails held or failed at booking or password reset are retried here | Hourly | `deliver-outbox` |
 
 The rules live in `src/lib/automation/rules.ts` (tested in `tests/automation.test.ts`); the jobs live in `src/lib/automation/jobs.ts`. Emails never include a visit reason or insurance.
 
@@ -69,7 +90,8 @@ This is a first version. The chosen launch setup, costs and steps are in [docs/l
 
 - **Hosting:** HIPAA-eligible hosting and database with a signed business associate agreement. Appointment records contain protected health information. Switch Prisma's provider to `postgresql`.
 - **Separate the handle vault** into its own database with its own credentials.
-- **Email and SMS:** appointment confirmations and reminders (a HIPAA-compliant provider), plus email verification and password reset.
-- **Document upload** for the credential wallet, and state-board primary-source checks (the automated check today uses NPPES, which confirms identity and taxonomy but not license standing).
-- **Rate limiting** on sign-up, login and booking.
+- **Email:** turn on Amazon SES under the AWS BAA (`EMAIL_TRANSPORT="ses"`, see [docs/launch.md](docs/launch.md)). Add SMS reminders and email address verification.
+- **Document storage:** move credential documents from local disk to encrypted object storage covered by the same agreement.
+- **Automated primary-source license checks** to speed up the verification queue.
+- **Shared rate limits:** with more than one server, move the counters from memory to Redis or the database.
 - **Legal review** of pricing, terms, privacy policy and the booking consent text by healthcare counsel in the launch state.

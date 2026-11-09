@@ -5,9 +5,7 @@
 
 import { db } from "../db";
 import { lookupNpiStrict } from "../npi";
-import { fmtSlot } from "../time";
 import {
-  appointmentReminderDue,
   clinicianFitsJob,
   compareWithRegistry,
   DAY_MS,
@@ -19,6 +17,7 @@ import {
   type Message,
 } from "./rules";
 import { transport } from "./mailer";
+import { sendDueReminders } from "../reminders";
 
 const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -64,25 +63,6 @@ export async function onJobPosted(jobId: string) {
     n++;
   }
   return n;
-}
-
-export async function onAppointmentBooked(appointmentId: string) {
-  const a = await db.appointment.findUnique({
-    where: { id: appointmentId },
-    include: { slot: { include: { clinician: { include: { user: true } } } } },
-  });
-  if (!a) return;
-  const c = a.slot.clinician;
-  await enqueue(
-    `booked:${a.id}`,
-    a.patientEmail,
-    "BOOKING_CONFIRMED",
-    messages.bookingConfirmed(a.patientName, c.user.name, fmtSlot(a.slot.startsAt, c.officeState, "long"), officeLine(c), `${appUrl()}/appointments/${a.accessToken}`),
-  );
-}
-
-function officeLine(c: { officeName: string | null; officeAddress: string | null; officeCity: string | null; officeState: string | null }) {
-  return [c.officeName, c.officeAddress, c.officeCity && c.officeState ? `${c.officeCity}, ${c.officeState}` : null].filter(Boolean).join(", ");
 }
 
 // ---------------------------------------------------------------------------
@@ -177,25 +157,10 @@ async function credentialReminders(): Promise<JobResult> {
   return `${n} credential reminder${n === 1 ? "" : "s"} queued`;
 }
 
+/** One reminder per booked visit in the next 24 hours (see src/lib/reminders.ts). */
 async function appointmentReminders(): Promise<JobResult> {
-  const now = new Date();
-  const upcoming = await db.appointment.findMany({
-    where: { status: "BOOKED", slot: { startsAt: { gt: now, lte: new Date(now.getTime() + 26 * 3_600_000) } } },
-    include: { slot: { include: { clinician: { include: { user: true } } } } },
-  });
-  let n = 0;
-  for (const a of upcoming) {
-    if (!appointmentReminderDue(a.slot.startsAt, now)) continue;
-    const c = a.slot.clinician;
-    await enqueue(
-      `remind:${a.id}`,
-      a.patientEmail,
-      "APPOINTMENT_REMINDER",
-      messages.appointmentReminder(a.patientName, c.user.name, fmtSlot(a.slot.startsAt, c.officeState, "long"), officeLine(c), `${appUrl()}/appointments/${a.accessToken}`),
-    );
-    n++;
-  }
-  return `${n} patient reminder${n === 1 ? "" : "s"} queued`;
+  const n = await sendDueReminders(db);
+  return `${n} patient reminder${n === 1 ? "" : "s"} sent`;
 }
 
 /** Nudge clinicians to record past visits, once a day each. */

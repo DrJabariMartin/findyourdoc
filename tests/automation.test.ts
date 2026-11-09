@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  appointmentReminderDue,
   clinicianFitsJob,
   compareWithRegistry,
   DAY_MS,
@@ -66,12 +65,9 @@ test("credential reminders at 60, 30 and 7 days, then expired", () => {
   assert.equal(expiryReminderBand(inDays(-1), now), 0);
 });
 
-test("patient reminder window and visit-recording nudge", () => {
+test("visit-recording nudge waits 2 hours after the visit ends", () => {
   const now = new Date("2026-11-06T12:00:00Z");
   const at = (h: number) => new Date(now.getTime() + h * HOUR_MS);
-  assert.ok(appointmentReminderDue(at(24), now));
-  assert.ok(!appointmentReminderDue(at(30), now));
-  assert.ok(!appointmentReminderDue(at(1), now));
   assert.ok(visitNeedsRecording(at(-4), 30, now));
   assert.ok(!visitNeedsRecording(at(-1), 30, now));
 });
@@ -83,8 +79,8 @@ test("90-day re-check is due on or after its date", () => {
   assert.ok(!recheckDue(null, now));
 });
 
-test("patient emails never carry visit reasons or insurance", () => {
-  const m = messages.appointmentReminder("Ann Lee", "Dr. Jane Smith", "Monday, November 9 at 9:00 AM EST", "Peachtree Ortho", "https://x/appointments/t");
+test("member emails never carry visit reasons or insurance", () => {
+  const m = messages.recordVisit("Dr. Jane Smith", 2, "https://x");
   assert.doesNotMatch(m.body, /reason|insurance|diagnos/i);
-  assert.match(m.body, /cancel/);
+  assert.match(m.body, /never charged/);
 });

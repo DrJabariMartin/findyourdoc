@@ -10,7 +10,7 @@ export default async function Admin() {
       where: {
         OR: [{ status: { in: ["PENDING", "LAPSED"] } }, { status: "VERIFIED", nextRecheckAt: { lte: new Date() } }],
       },
-      include: { user: true, checks: { orderBy: { createdAt: "desc" }, take: 1 } },
+      include: { user: true, credentials: { include: { documents: true } }, checks: { orderBy: { createdAt: "desc" }, take: 1 } },
       orderBy: { createdAt: "asc" },
     }),
     db.post.findMany({ where: { flagged: true }, include: { room: true }, orderBy: { createdAt: "asc" } }),
@@ -37,6 +37,9 @@ export default async function Admin() {
               {c.status === "LAPSED" && <div className="text-sm font-semibold">Paused by the 90-day re-check</div>}
               {c.status === "VERIFIED" && <div className="text-sm font-semibold">Due for a manual 90-day re-check (approve renews it)</div>}
               <AutoCheck check={c.checks[0]} />
+              {c.credentials.flatMap((cr) => cr.documents.map((d) => (
+                <a key={d.id} href={`/documents/${d.id}`} className="text-sm block" target="_blank" rel="noopener">{cr.kind}: {d.fileName}</a>
+              )))}
             </div>
             <form action={decide} className="flex gap-2">
               <input type="hidden" name="clinicianId" value={c.id} />

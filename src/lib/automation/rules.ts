@@ -116,12 +116,6 @@ export function expiryReminderBand(expiresAt: Date, now: Date): 60 | 30 | 7 | 0 
   return null;
 }
 
-/** A patient reminder goes out once, between 26 and 2 hours before the visit. */
-export function appointmentReminderDue(startsAt: Date, now: Date): boolean {
-  const ahead = startsAt.getTime() - now.getTime();
-  return ahead <= 26 * HOUR_MS && ahead > 2 * HOUR_MS;
-}
-
 /** A visit that ended over 2 hours ago and is still "booked" needs recording. */
 export function visitNeedsRecording(startsAt: Date, minutes: number, now: Date): boolean {
   return now.getTime() - (startsAt.getTime() + minutes * 60_000) > 2 * HOUR_MS;
@@ -132,8 +126,8 @@ export function recheckDue(nextRecheckAt: Date | null, now: Date): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Messages. Short, plain, and free of clinical details: no visit reason or
-// insurance ever goes into an email.
+// Messages for members. Short, plain, and free of clinical details. Patient
+// emails live in src/lib/email.ts.
 // ---------------------------------------------------------------------------
 
 export type Message = { subject: string; body: string };
@@ -158,14 +152,6 @@ export const messages = {
   recheckLapsed: (name: string): Message => ({
     subject: "Action needed: we couldn't confirm your license",
     body: `Hi ${name},\n\nOur 90-day re-check couldn't confirm your registry details, so your profile is paused while a person on our team looks at it. Reply to this email if anything changed, such as a new license number or state.\n\nFindYourDoc`,
-  }),
-  bookingConfirmed: (patientName: string, clinicianName: string, when: string, office: string, manageUrl: string): Message => ({
-    subject: `Your visit with ${clinicianName} is booked`,
-    body: `Hi ${patientName},\n\nYour visit with ${clinicianName} is booked for ${when}${office ? ` at ${office}` : ""}.\n\nTo view or cancel: ${manageUrl}\n\nFindYourDoc`,
-  }),
-  appointmentReminder: (patientName: string, clinicianName: string, when: string, office: string, manageUrl: string): Message => ({
-    subject: `Reminder: your visit with ${clinicianName} is coming up`,
-    body: `Hi ${patientName},\n\nA reminder that your visit with ${clinicianName} is ${when}${office ? ` at ${office}` : ""}.\n\nCan't make it? Please cancel so someone else can have the time: ${manageUrl}\n\nFindYourDoc`,
   }),
   recordVisit: (name: string, count: number, appUrl: string): Message => ({
     subject: `Please record ${count} past visit${count === 1 ? "" : "s"}`,
