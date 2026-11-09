@@ -47,7 +47,7 @@ Every pull request runs lint, type checks, tests and a build in GitHub Actions (
 |---|---|
 | Clinician keeps 100% of their rate; locums fee is 12% on top, paid by the practice | `src/lib/fees.ts` |
 | Permanent hire is $9,500 flat; locum-to-permanent fee falls to $0 over 12 months (no non-competes) | `src/lib/fees.ts` |
-| Booking fee is a flat $40, only for a completed visit by a new patient who found the clinician here; never for no-shows, cancellations, existing patients or the practice's own website | `src/lib/fees.ts`, `recordVisit` in `src/app/actions/booking.ts` |
+| Booking fee is a flat $40, only for a completed visit by a new patient who found the clinician here; never for no-shows, cancellations, existing patients, the practice's own website, or patients on Medicare, Medicaid, TRICARE or VA (anti-kickback safeguard) | `src/lib/fees.ts`, `recordVisit` in `src/app/actions/booking.ts` |
 | Search ranking uses availability only | `src/app/find/page.tsx` |
 | Only verified clinicians can enter the Lounge, apply to jobs or take bookings | `src/lib/session.ts` |
 | Anonymous posts reference a handle; the user-to-handle link lives only in `HandleVault` | `prisma/schema.prisma`, `src/app/actions/lounge.ts` |
