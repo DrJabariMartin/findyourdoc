@@ -86,3 +86,61 @@ export function bookingFeeCents(appt: { status: string; newPatient: boolean; sou
   if (appt.governmentPlan) return 0;
   return appt.status === "COMPLETED" && appt.newPatient && appt.source === "FINDYOURDOC" ? BOOKING_FEE_CENTS : 0;
 }
+
+// Practice plans: a self-serve tier, a core tier and a done-for-you tier.
+// Hire, locums and booking fees are the same on every plan, so the numbers a
+// practice sees never depend on which tier it bought.
+export type PlanId = "SOLO" | "GROUP" | "CONCIERGE";
+
+export const PLANS: { id: PlanId; name: string; monthlyCents: number; who: string; includes: string[] }[] = [
+  {
+    id: "SOLO",
+    name: "Solo",
+    monthlyCents: 29_900,
+    who: "1 to 5 physicians. You run your own hiring.",
+    includes: ["Post locums shifts and permanent roles", "Search verified clinicians", "Review credential packets", "Patient booking on your clinicians' profiles"],
+  },
+  {
+    id: "GROUP",
+    name: "Group",
+    monthlyCents: 79_900,
+    who: "6 or more physicians, ASCs and urgent care. Our core plan.",
+    includes: ["Everything in Solo", "Multiple admins and locations", "Shared hiring pipeline for the whole group", "Priority verification for your candidates"],
+  },
+  {
+    id: "CONCIERGE",
+    name: "Concierge",
+    monthlyCents: 199_900,
+    who: "We run the hiring for you.",
+    includes: ["Everything in Group", "A hiring coordinator writes your listings", "3 verified, interested candidates per role within 14 days", "Interviews scheduled for you"],
+  },
+];
+
+// Guarantees. We sell outcomes, so each paid product carries one.
+export const HIRE_GUARANTEE_DAYS = 90;
+export const LOCUMS_CANCEL_GUARANTEE_DAYS = 14;
+export const CONCIERGE_SHORTLIST_DAYS = 14;
+export const CONCIERGE_SHORTLIST_SIZE = 3;
+
+/**
+ * Fee for a permanent hire. If the practice's previous permanent hire through
+ * FindYourDoc left within the guarantee window, this hire has no fee.
+ */
+export function permanentHireFeeCents(previousHireDaysWorked?: number): number {
+  return previousHireDaysWorked !== undefined && previousHireDaysWorked < HIRE_GUARANTEE_DAYS ? 0 : PERMANENT_HIRE_FEE_CENTS;
+}
+
+/** Our fee on a replacement locum is waived when a confirmed locum cancels close to the start. */
+export function replacementLocumsFeeWaived(daysNoticeBeforeStart: number): boolean {
+  return daysNoticeBeforeStart < LOCUMS_CANCEL_GUARANTEE_DAYS;
+}
+
+/**
+ * Concierge fee for a month: waived if any role missed its shortlist in time.
+ * daysToShortlist is null while a role still has no full shortlist.
+ */
+export function conciergeMonthCents(roles: { openedDaysAgo: number; daysToShortlist: number | null }[]): number {
+  const late = (days: number) => days > CONCIERGE_SHORTLIST_DAYS;
+  const missed = roles.some((r) => (r.daysToShortlist === null ? late(r.openedDaysAgo) : late(r.daysToShortlist)));
+  return missed ? 0 : PLANS.find((p) => p.id === "CONCIERGE")!.monthlyCents;
+}

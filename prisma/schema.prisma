@@ -114,10 +114,27 @@ model Practice {
   name      String
   city      String
   state     String
-  plan      String           @default("SOLO") // SOLO | GROUP
+  plan      String           @default("SOLO") // SOLO | GROUP | CONCIERGE
   createdAt DateTime         @default(now())
   members   PracticeMember[]
   jobs      Job[]
+}
+
+// Who wants FindYourDoc where we haven't opened yet. Counts by state decide
+// the next launch state. depositIntent records whether a practice says it
+// would pay a refundable deposit for a founding spot; no money is taken.
+// Never store health details here.
+model WaitlistEntry {
+  id            String   @id @default(cuid())
+  email         String
+  role          String   // PATIENT | CLINICIAN | PRACTICE
+  state         String
+  city          String?
+  depositIntent Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@unique([email, role, state])
+  @@index([state, role])
 }
 
 model PracticeMember {
