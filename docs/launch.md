@@ -26,6 +26,49 @@ Decided 2026-11-09 and re-checked against current vendor pages the same day. Not
 - **Paubox** and **Aptible** are HIPAA-ready but cost more at this size.
 - **Zapier** and **Make** can't carry patient data without a BAA.
 
+## Launch market: DC, Maryland and Virginia (Atlanta second)
+
+Decided 2026-11-10. The primary market is the DC area: the District of Columbia, Maryland and Virginia. Atlanta, Georgia is an optional second market that opens only after the DC area works. Community, permanent hiring and booking are open nationally, but outreach, content and the Founding 100 focus on the DC area.
+
+### Company registration
+- **Incorporate in Delaware** (C-corp), as decided on 2026-11-09.
+- **Register as a foreign corporation in the jurisdiction where Jabari lives and works first.** That is where the company "does business" from day one.
+- **Add DC, Maryland or Virginia when the company gets an office, an employee, or a state license there.** A Maryland staffing license (see below) requires being registered in Maryland.
+- **Register in Georgia only when Atlanta opens.** This replaces the 2026-11-09 plan to register in Georgia at launch.
+
+### Licensing that affects the product
+
+| | DC | Maryland | Virginia | Georgia (second) |
+| --- | --- | --- | --- | --- |
+| Physicians: Interstate Medical Licensure Compact | Member | Member | **Not confirmed. Plan on a full Virginia license.** | Member |
+| Nurses: Nurse Licensure Compact | **Not a member.** RNs need a DC license. | Member | Member | Member |
+| PT Compact | Member, issuing and accepting privileges | Member, issuing and accepting privileges | Member (check DHP for status) | Member |
+| Temporary staffing (locums) | DC Health licenses nurse staffing agencies | MDH OHCQ licenses any "health care staff agency" that refers practitioners, as employees or contractors, for temporary work at a facility | Check for any nurse staffing agency registration | Check |
+
+What this means:
+- **Compacts speed up licensing but don't replace it.** A clinician still needs a license or compact privilege in the state where the patient is. Verification keeps checking the license for the state where the clinician practices.
+- **Telehealth follows the patient.** A video visit needs a license where the patient is located. Booking is in-person only today, so nothing changes yet. A telehealth option must check the patient's state against the clinician's licenses.
+- **Locums is gated by state.** FindYourDoc refers clinicians for temporary work at practices and charges 12% on top, so Maryland's definition probably covers it, and DC's covers nurses. `LOCUMS_STATES` lists the states where locums posts are allowed. In production it starts empty, and each state is added when counsel says no license is needed or the license is granted. Permanent and per-diem posts work everywhere.
+
+### Taxes on the practice subscription
+- **Maryland** taxes SaaS at 6%, and since July 1, 2025 it also charges 3% on many data and IT services. Treat practice plans as taxable in Maryland until a CPA says otherwise.
+- **DC** taxes many digital and SaaS products. Have a CPA confirm.
+- **Virginia** doesn't generally tax SaaS.
+- Turn on Stripe Tax when Stripe is set up.
+
+### Government plans (booking fee is never charged)
+The fee exemption now also matches the local plan names: Maryland HealthChoice and MCHP, Virginia Cardinal Care and FAMIS, DC Healthy Families and DC Healthcare Alliance. It still matches Georgia's PeachCare.
+
+### Sources (checked 2026-11-10)
+- PT Compact map: [DC](https://ptcompact.org/State/DC), [Maryland](https://ptcompact.org/State/MD), [Virginia DHP](https://www.dhp.virginia.gov/Boards/PhysicalTherapy/PractitionerResources/PTLicensureCompact/)
+- Nurse Licensure Compact membership: [overview](https://en.wikipedia.org/wiki/Nurse_Licensure_Compact) (DC not a member)
+- Maryland OHCQ: [Health Care Staff Agencies](https://health.maryland.gov/ohcq/Pages/Health-Care-Staff-Agencies.aspx)
+- DC Health: [nurse staffing agency regulations](https://dchealth.dc.gov/sites/default/files/dc/sites/doh/publication/attachments/Regulations%20for%20Nurse%20Staffing%20Agencies%20%2822B%20DCMR%204900%29%20%28as%20of%2004.21.23%29.pdf)
+- IMLC participating states: [imlcc.com](https://imlcc.com/faqs/). Confirm Virginia on the live map before relying on it.
+- Maryland 3% tech services tax: [Venable](https://www.venable.com/insights/publications/2025/07/salt-alert-maryland-enacts-3-sales-tax-on-tech)
+
+Healthcare counsel should confirm the locums and staffing questions in all three jurisdictions before any locums post goes live.
+
 ## Estimated monthly cost at launch (us-east-1)
 
 These are estimates from published rates, not quotes. Check them in the AWS Pricing Calculator before approving.
