@@ -42,6 +42,7 @@ model ClinicianProfile {
 
   credentials  Credential[]
   applications Application[]
+  checks       VerificationCheck[]
 
   // Patient booking. Off until the clinician turns it on.
   bookable       Boolean  @default(false)
@@ -64,6 +65,7 @@ model Credential {
   status      String           @default("PENDING") // PENDING | VERIFIED | NEEDED | EXPIRED
   expiresAt   DateTime?
   checkedAt   DateTime?
+  documents   CredentialDocument[]
 }
 
 // The anonymous handle vault. The link between a user and their handle lives
@@ -206,9 +208,84 @@ model Appointment {
   insurance    String?          // plan name, or null for self-pay
   reason       String?          // short, optional
   newPatient   Boolean          @default(true)
+  governmentPlan Boolean        @default(false) // Medicare, Medicaid, TRICARE, VA etc.: never charged a booking fee
   source       String           @default("FINDYOURDOC") // FINDYOURDOC | PRACTICE_SITE
   status       String           @default("BOOKED") // BOOKED | CANCELLED | COMPLETED | NO_SHOW
   accessToken  String           @unique // lets the patient view or cancel without an account
   feeCents     Int              @default(0) // set when the visit is completed
+  reminderSentAt DateTime?
   createdAt    DateTime         @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Automation. Every automated step writes what it did, so an admin can audit
+// it, and every message goes through the outbox, so nothing is sent twice.
+// ---------------------------------------------------------------------------
+
+// The result of an automated registry check. It advises the admin; it never
+// approves anyone on its own (policy: a person approves every new member).
+model VerificationCheck {
+  id          String           @id @default(cuid())
+  clinicianId String
+  clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  kind        String           // SIGNUP | RECHECK
+  source      String           // NPPES
+  result      String           // MATCH | MISMATCH | NOT_FOUND | NO_NPI | ERROR
+  issues      String           // newline-separated, empty when MATCH
+  createdAt   DateTime         @default(now())
+
+  @@index([clinicianId, createdAt])
+}
+
+// Outbox for email. dedupeKey stops the same reminder going out twice even if
+// a job runs again. Bodies never include visit reasons or insurance details.
+model Notification {
+  id        String    @id @default(cuid())
+  dedupeKey String    @unique
+  toEmail   String
+  kind      String    // WELCOME | VERIFIED | JOB_MATCH | CREDENTIAL_EXPIRING | RECHECK_LAPSED | BOOKING_CONFIRMED | APPOINTMENT_REMINDER | RECORD_VISIT | ADMIN_DIGEST
+  subject   String
+  body      String
+  status    String    @default("PENDING") // PENDING | SENT | FAILED
+  attempts  Int       @default(0)
+  sendAfter DateTime  @default(now())
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime  @default(now())
+
+  @@index([status, sendAfter])
+}
+
+model AutomationRun {
+  id         String    @id @default(cuid())
+  job        String
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  ok         Boolean   @default(false)
+  summary    String    @default("")
+
+  @@index([job, startedAt])
+}
+
+// One-time password reset links. Only a hash of the token is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Files a clinician uploads for verification. Stored outside the public
+// folder and served only to the owner and admins.
+model CredentialDocument {
+  id           String     @id @default(cuid())
+  credentialId String
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String     @unique
+  uploadedAt   DateTime   @default(now())
 }

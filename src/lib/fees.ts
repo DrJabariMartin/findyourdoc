@@ -71,7 +71,19 @@ export function listingMoney(job: {
 // no-shows, cancellations, existing patients or the practice's own website.
 export const BOOKING_FEE_CENTS = 4_000; // $40
 
-export function bookingFeeCents(appt: { status: string; newPatient: boolean; source: string }): number {
+// No fee is ever charged for a patient covered by a federal or state health
+// program (Medicare, Medicare Advantage, Medicaid, CHIP, TRICARE, VA). A
+// per-patient fee tied to those patients could be treated as payment for
+// referrals under the federal Anti-Kickback Statute. Zocdoc took the same
+// approach in OIG Advisory Opinion 19-04. Ranking ignores this entirely.
+const GOVERNMENT_PLAN = /medicare|medicaid|medi-cal|\bchip\b|peachcare|tricare|champva|\bva\b|veterans|indian health/i;
+
+export function isGovernmentPlan(insurance: string | null | undefined): boolean {
+  return !!insurance && GOVERNMENT_PLAN.test(insurance);
+}
+
+export function bookingFeeCents(appt: { status: string; newPatient: boolean; source: string; governmentPlan?: boolean }): number {
+  if (appt.governmentPlan) return 0;
   return appt.status === "COMPLETED" && appt.newPatient && appt.source === "FINDYOURDOC" ? BOOKING_FEE_CENTS : 0;
 }
 

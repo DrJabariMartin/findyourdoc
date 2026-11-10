@@ -1,0 +1,36 @@
+# Runs FindYourDoc's automations every hour by calling the app's protected
+# endpoint. The request carries only the shared secret, never patient data.
+# Does nothing until the repository has both secrets:
+#   APP_URL            e.g. https://findyourdoc.com
+#   AUTOMATION_SECRET  the same value the app uses (24+ characters)
+name: Hourly automations
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Job to run (all, or one name from the README table)"
+        default: "all"
+
+permissions: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call the automations endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
+          JOB: ${{ github.event.inputs.job || 'all' }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$AUTOMATION_SECRET" ]; then
+            echo "APP_URL or AUTOMATION_SECRET is not set yet; skipping."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 300 \
+            -X POST -H "Authorization: Bearer $AUTOMATION_SECRET" \
+            "$APP_URL/api/automations?job=$JOB"

@@ -27,25 +27,36 @@ export function isValidNpi(npi: string): boolean {
   return sum % 10 === 0;
 }
 
-export async function lookupNpi(npi: string): Promise<NpiResult | null> {
+/**
+ * Looks up an NPI. Returns null when the registry has no active record for it,
+ * and throws when the registry can't be reached, so callers never mistake an
+ * outage for a missing or deactivated NPI.
+ */
+export async function lookupNpiStrict(npi: string): Promise<NpiResult | null> {
   if (!isValidNpi(npi)) return null;
   const url = `https://npiregistry.cms.hhs.gov/api/?version=2.1&number=${npi}`;
+  const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) throw new Error(`NPPES returned HTTP ${res.status}`);
+  const data = await res.json();
+  if (data?.Errors) throw new Error("NPPES returned an error");
+  const r = data?.results?.[0];
+  if (!r) return null;
+  const basic = r.basic ?? {};
+  const tax = (r.taxonomies ?? []).find((t: { primary?: boolean }) => t.primary) ?? r.taxonomies?.[0];
+  return {
+    npi,
+    name: [basic.first_name, basic.last_name].filter(Boolean).join(" ") || basic.organization_name || "",
+    credential: basic.credential ?? null,
+    taxonomy: tax?.desc ?? null,
+    state: tax?.state ?? null,
+    licenseNumber: tax?.license ?? null,
+  };
+}
+
+/** Best-effort lookup for prefilling forms: any failure returns null. */
+export async function lookupNpi(npi: string): Promise<NpiResult | null> {
   try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const r = data?.results?.[0];
-    if (!r) return null;
-    const basic = r.basic ?? {};
-    const tax = (r.taxonomies ?? []).find((t: { primary?: boolean }) => t.primary) ?? r.taxonomies?.[0];
-    return {
-      npi,
-      name: [basic.first_name, basic.last_name].filter(Boolean).join(" ") || basic.organization_name || "",
-      credential: basic.credential ?? null,
-      taxonomy: tax?.desc ?? null,
-      state: tax?.state ?? null,
-      licenseNumber: tax?.license ?? null,
-    };
+    return await lookupNpiStrict(npi);
   } catch {
     return null;
   }
