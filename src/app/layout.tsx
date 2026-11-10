@@ -38,8 +38,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/lounge" className="py-2">The Lounge</Link>
               <Link href="/jobs" className="py-2">Jobs and locums</Link>
               <Link href="/practice" className="py-2">For practices</Link>
+              <Link href="/pricing" className="py-2">Pricing</Link>
               {user?.clinician?.status === "VERIFIED" && <Link href="/schedule" className="py-2">My bookings</Link>}
               {user?.role === "ADMIN" && <Link href="/admin" className="py-2">Verification queue</Link>}
+              {user?.role === "ADMIN" && <Link href="/admin/waitlist" className="py-2">Waitlist</Link>}
             </div>
             {user ? (
               <form action={logout} className="flex items-center gap-3 text-sm text-ink-2">

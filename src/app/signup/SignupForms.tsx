@@ -2,7 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { signupClinician, signupPractice } from "../actions/auth";
+import Link from "next/link";
 import { PROFESSIONS, STATES } from "@/lib/labels";
+import { PLANS, dollars } from "@/lib/fees";
 
 function StateSelect({ name }: { name: string }) {
   return (
@@ -23,7 +25,7 @@ function Account() {
   );
 }
 
-export default function SignupForms({ initial }: { initial: "clinician" | "practice" }) {
+export default function SignupForms({ initial, plan }: { initial: "clinician" | "practice"; plan?: string }) {
   const [tab, setTab] = useState(initial);
   const [cState, cAction, cPending] = useActionState(signupClinician, undefined);
   const [pState, pAction, pPending] = useActionState(signupPractice, undefined);
@@ -63,6 +65,12 @@ export default function SignupForms({ initial }: { initial: "clinician" | "pract
             <label className="label">City<input name="city" className="field" required /></label>
             <label className="label">State<StateSelect name="state" /></label>
           </div>
+          <label className="label">Plan
+            <select name="plan" className="field" defaultValue={PLANS.some((p) => p.id === plan) ? plan : "SOLO"}>
+              {PLANS.map((p) => <option key={p.id} value={p.id}>{p.name}, {dollars(p.monthlyCents)} a month</option>)}
+            </select>
+          </label>
+          <p className="text-sm text-muted">Compare plans and guarantees on the <Link href="/pricing" className="underline">pricing page</Link>. Hire and locums fees are the same on every plan.</p>
           {pState?.error && <p role="alert" className="text-sm text-red-700">{pState.error}</p>}
           <button className="btn" disabled={pPending}>{pPending ? "Creating account…" : "Create practice account"}</button>
         </form>

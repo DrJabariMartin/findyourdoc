@@ -32,7 +32,12 @@ export default function Home() {
       </section>
       <section className="rounded-2xl bg-ink text-white p-8 flex flex-col gap-3">
         <h2 className="font-display font-extrabold text-2xl">For practices</h2>
-        <p className="text-[#C9D6E0]">$299 a month for solo practices, $799 for groups. $9,500 flat per permanent hire. Locums at 12% on top of the clinician&apos;s rate. Never a percentage of professional fees.</p>
+        <p className="text-[#C9D6E0]">$299 a month for solo practices, $799 for groups, $1,999 if you want us to run your hiring. $9,500 flat per permanent hire. Locums at 12% on top of the clinician&apos;s rate. Never a percentage of professional fees.</p>
+        <p className="text-[#C9D6E0]">Every plan comes with a guarantee: if a permanent hire leaves within 90 days, your next permanent hire has no fee.</p>
+        <div className="flex flex-wrap gap-3 pt-1">
+          <Link href="/pricing" className="btn">See plans and guarantees</Link>
+          <Link href="/waitlist" className="btn-soft">Not in your state yet? Join the waitlist</Link>
+        </div>
       </section>
       <footer className="text-sm text-muted">Founded by Dr. Jabari Martin, orthopedic surgeon.</footer>
     </div>
