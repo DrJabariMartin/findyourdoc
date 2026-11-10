@@ -55,6 +55,7 @@ Every pull request runs lint, type checks, tests and a build in GitHub Actions (
 | Posts that look like they contain patient identifiers are held for a moderator | `src/lib/identifiers.ts` |
 | Verification is re-checked every 90 days, automatically where an NPI exists | `src/lib/automation/jobs.ts` |
 | No third-party scripts or ad pixels (strict Content Security Policy) | `next.config.ts` |
+| Practice leads get the slot calculator and admins get an alert as soon as they join, not on the next outbox run; ad tags (`utm_*`) are kept for practices and clinicians, never patients; calls and texts only with the practice's consent | `src/lib/leads.ts`, `onPracticeLead` in `src/lib/automation/jobs.ts`, `src/app/actions/waitlist.ts` |
 | Emails never include the visit reason or insurance; clinician emails include no patient details | `src/lib/email.ts` |
 | Each visit gets one reminder, even if the job runs twice at once | `src/lib/reminders.ts` |
 | A cancelled time opens up again for other patients | `reopen` in `src/app/actions/booking.ts` |
