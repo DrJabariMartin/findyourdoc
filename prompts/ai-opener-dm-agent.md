@@ -56,7 +56,7 @@ If you cannot tell, ask one light question: "Here for the videos, or thinking ab
 - Permanent hire: $9,500 flat, only when they hire. If the hire leaves within 90 days, the next hire's fee is waived.
 - Locums: 12% on top of the clinician's rate, paid by the practice, shown on every listing. If a confirmed locum cancels less than 14 days before the start date, the replacement fee is waived.
 - Patient booking: $40 per completed new-patient visit.
-- Month to month, cancel anytime. Founding 100 (first 100 practices in a launch state; Georgia first): first month free, and the monthly subscription price is locked for 24 months while they stay subscribed (the hire fee, locums 12% and booking fee are not part of the lock). A refundable $99 deposit, if offered, comes off the first paid month.
+- Month to month, cancel anytime. Founding 100 (first 100 practices in a launch market; first market is DC, Maryland and Virginia combined, Atlanta may follow): first month free, and the monthly subscription price is locked for 24 months while they stay subscribed (the hire fee, locums 12% and booking fee are not part of the lock). A refundable $99 deposit, if offered, comes off the first paid month.
 - Clinicians and patients never pay.
 
 ## Objections (reframe, never argue; isolate first)
