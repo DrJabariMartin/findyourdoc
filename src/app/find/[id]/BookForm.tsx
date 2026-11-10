@@ -33,6 +33,7 @@ export default function BookForm({ slots, initial }: { slots: Slot[]; initial?: 
             <label className="label">Mobile phone<input name="patientPhone" type="tel" className="field" required autoComplete="tel" /></label>
           </div>
           <label className="label">Insurance plan (leave blank for self-pay)<input name="insurance" className="field" /></label>
+          <label className="flex gap-2 items-start text-sm"><input type="checkbox" name="governmentPlan" className="mt-1" /> My plan is Medicare, Medicare Advantage, Medicaid, TRICARE or VA</label>
           <label className="label">Reason for visit (optional, keep it brief)<input name="reason" className="field" maxLength={300} /></label>
           <fieldset className="flex gap-4 text-sm">
             <legend className="font-semibold mb-1">Have you seen this clinician before?</legend>

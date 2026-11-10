@@ -46,7 +46,7 @@ The domain itself is extra, usually $10 to $20 a year.
 
 1. **Jabari:** Create the AWS account in the company's name, on the company card. This is spend.
 2. **Jabari:** Accept the AWS BAA in AWS Artifact. This is a legal agreement.
-3. **Jabari:** Confirm the domain, or buy it if it isn't owned yet. This is spend.
+3. **Jabari:** Have a trademark attorney clear the name first. "FindYourDoc" may conflict with existing "Find My Doc" filings and apps. Buy the domain, and commission a logo, only after the name is cleared. This is spend. Steps 1, 2 and 4 don't depend on the name, so they can go ahead. The SES and app setup in steps 5 to 7 waits for the domain.
 4. **Engineering:**
    - Switch Prisma to `postgresql`.
    - Move document storage to S3.
