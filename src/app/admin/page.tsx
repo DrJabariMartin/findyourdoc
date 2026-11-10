@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/session";
-import { decide, releasePost } from "../actions/admin";
-import { PROFESSIONS } from "@/lib/labels";
+import { addLicense, decide, releasePost, removeLicense, setPilotTerms } from "../actions/admin";
+import { PROFESSIONS, STATES } from "@/lib/labels";
 
 export default async function Admin() {
   await requireAdmin();
-  const [pending, flagged, due, runs, outbox] = await Promise.all([
+  const [pending, flagged, due, runs, outbox, verified] = await Promise.all([
     db.clinicianProfile.findMany({
       where: {
         OR: [{ status: { in: ["PENDING", "LAPSED"] } }, { status: "VERIFIED", nextRecheckAt: { lte: new Date() } }],
@@ -17,6 +17,7 @@ export default async function Admin() {
     db.clinicianProfile.count({ where: { status: "VERIFIED", nextRecheckAt: { lte: new Date() } } }),
     db.automationRun.findMany({ orderBy: { startedAt: "desc" }, take: 14 }),
     db.notification.groupBy({ by: ["status"], _count: { _all: true } }),
+    db.clinicianProfile.findMany({ where: { status: "VERIFIED" }, include: { user: true, licenses: { orderBy: { state: "asc" } } }, orderBy: { createdAt: "asc" }, take: 100 }),
   ]);
   const outboxCount = (status: string) => outbox.find((o) => o.status === status)?._count._all ?? 0;
   return (
@@ -45,6 +46,44 @@ export default async function Admin() {
               <input type="hidden" name="clinicianId" value={c.id} />
               <button name="verdict" value="approve" className="btn !py-2">Approve</button>
               <button name="verdict" value="reject" className="btn-soft">Reject</button>
+            </form>
+          </div>
+        ))}
+      </section>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-semibold text-lg">State licenses and pilot terms ({verified.length})</h2>
+        <p className="text-sm text-muted">
+          Video visits follow the patient: a clinician can see a patient by video only in states listed here. Add a state only after
+          checking that state board&apos;s own lookup. A fee waiver sets every booking fee to $0; a disclosure shows on the profile. Neither changes ranking.
+        </p>
+        {verified.map((c) => (
+          <div key={c.id} className="card flex flex-col gap-3">
+            <div>
+              <div className="font-semibold">{c.user.name} · {PROFESSIONS[c.profession]}, {c.specialty}</div>
+              <div className="text-sm text-muted">
+                Signup license {c.licenseState} {c.licenseNumber}
+                {c.licenses.length > 0 && " · Also: "}
+                {c.licenses.map((l) => (
+                  <form key={l.id} action={removeLicense} className="inline">
+                    <input type="hidden" name="licenseId" value={l.id} />
+                    {l.state} {l.number}{l.expiresAt ? ` (expires ${l.expiresAt.toISOString().slice(0, 10)})` : ""}{" "}
+                    <button className="underline cursor-pointer" title="Remove this license">remove</button>{" "}
+                  </form>
+                ))}
+              </div>
+            </div>
+            <form action={addLicense} className="flex flex-wrap gap-2 items-end">
+              <input type="hidden" name="clinicianId" value={c.id} />
+              <label className="label">State<select name="state" className="field">{STATES.map((s) => <option key={s}>{s}</option>)}</select></label>
+              <label className="label">License number<input name="number" className="field" required /></label>
+              <label className="label">Expires<input type="date" name="expiresAt" className="field" /></label>
+              <button className="btn-soft">Add verified license</button>
+            </form>
+            <form action={setPilotTerms} className="flex flex-wrap gap-2 items-end">
+              <input type="hidden" name="clinicianId" value={c.id} />
+              <label className="label">Fee waiver reason<input name="feeWaiver" defaultValue={c.feeWaiver ?? ""} className="field" placeholder="Founder pilot, no charge" /></label>
+              <label className="label flex-1 min-w-64">Disclosure shown to patients<input name="ownerDisclosure" defaultValue={c.ownerDisclosure ?? ""} className="field" placeholder="FindYourDoc's founder owns this practice." /></label>
+              <button className="btn-soft">Save terms</button>
             </form>
           </div>
         ))}

@@ -7,7 +7,7 @@ const pw = await bcrypt.hash("demo-password-123", 10);
 const day = 86_400_000;
 
 async function reset() {
-  for (const m of ["appointment", "availabilitySlot", "application", "job", "practiceMember", "practice", "post", "handleVault", "anonHandle", "room", "credential", "clinicianProfile", "user"]) {
+  for (const m of ["appointment", "availabilitySlot", "stateLicense", "application", "job", "practiceMember", "practice", "post", "handleVault", "anonHandle", "room", "credential", "clinicianProfile", "user"]) {
     await db[m].deleteMany();
   }
 }
@@ -18,10 +18,11 @@ const rooms = [
 ];
 const support = [["wellness", "Burnout and wellness"], ["legal-stress", "Malpractice and legal stress"], ["life", "Life outside medicine"]];
 
+// Launch market: DC, Maryland and Virginia.
 const clinicians = [
-  { name: "Dr. Sample Okafor", email: "ortho@example.com", profession: "PHYSICIAN", specialty: "Orthopedic surgeon", state: "DC", city: "Washington", insurance: "Aetna, CareFirst, Cigna, Medicare", selfPay: 180, bio: "Sports injuries, knee and shoulder." },
-  { name: "Sample Rivera, DPT", email: "pt@example.com", profession: "PT", specialty: "Sports and knee rehab", state: "MD", city: "Bethesda", insurance: "Aetna, United", selfPay: 95, bio: "Post-op rehab and running injuries." },
-  { name: "Sample Chen, FNP-C", email: "np@example.com", profession: "NP", specialty: "Family practice and urgent care", state: "VA", city: "Arlington", insurance: "Anthem, Medicaid, Medicare", selfPay: 85, bio: "Same-day visits for colds, flu, physicals and checkups." },
+  { name: "Dr. Sample Okafor", email: "ortho@example.com", profession: "PHYSICIAN", specialty: "Orthopedic surgeon", state: "MD", city: "Columbia", insurance: "Aetna, CareFirst, Cigna, Medicare", selfPay: 180, bio: "Sports injuries, knee and shoulder. Video visits for patients in Maryland and DC.", extra: [["DC", "SAMPLE-DC-0000"]], video: true },
+  { name: "Sample Rivera, DPT", email: "pt@example.com", profession: "PT", specialty: "Sports and knee rehab", state: "VA", city: "Arlington", insurance: "Aetna, United", selfPay: 95, bio: "Post-op rehab and running injuries." },
+  { name: "Sample Chen, FNP-C", email: "np@example.com", profession: "NP", specialty: "Family practice and urgent care", state: "DC", city: "Washington", insurance: "CareFirst, Medicaid, Medicare", selfPay: 85, bio: "Same-day visits for colds, flu, physicals and checkups." },
   { name: "Sample Patel, PharmD", email: "pharm@example.com", profession: "PHARMACIST", specialty: "Medication review", state: "MD", city: "Silver Spring", insurance: "", selfPay: 40, bio: "Medication reviews and questions about your prescriptions." },
 ];
 
@@ -43,12 +44,13 @@ for (const c of clinicians) {
         bookable: true, bio: c.bio, officeName: `${c.city} Sample Clinic`, officeAddress: "100 Example Way", officeCity: c.city, officeState: c.state,
         insurance: c.insurance || null, selfPayCents: c.selfPay * 100, visitMinutes: 30,
         credentials: { create: ["ID", "LICENSE", "BOARD", "EDUCATION", "MALPRACTICE"].map((kind) => ({ kind, status: "VERIFIED", checkedAt: new Date() })) },
+        licenses: { create: (c.extra ?? []).map(([state, number]) => ({ state, number })) },
       } },
     },
     include: { clinician: true },
   });
   const slots = [];
-  for (let d = 0; d < 3; d++) for (let h = 0; h < 4; h++) slots.push({ clinicianId: u.clinician.id, startsAt: new Date(start.getTime() + d * day + h * 90 * 60_000), minutes: 30 });
+  for (let d = 0; d < 3; d++) for (let h = 0; h < 4; h++) slots.push({ clinicianId: u.clinician.id, startsAt: new Date(start.getTime() + d * day + h * 90 * 60_000), minutes: 30, mode: c.video && h % 2 ? "VIDEO" : "IN_PERSON" });
   await db.availabilitySlot.createMany({ data: slots });
 }
 
@@ -57,13 +59,13 @@ await db.user.create({ data: { name: "Pending Sample, RN", email: "pending@examp
     credentials: { create: [{ kind: "ID", status: "NEEDED" }, { kind: "LICENSE", status: "NEEDED" }] } } } } });
 
 const practiceUser = await db.user.create({ data: { name: "Sample Practice Manager", email: "practice@example.com", passwordHash: pw, role: "PRACTICE",
-  memberships: { create: { practice: { create: { name: "Potomac Sample Orthopedics", city: "Arlington", state: "VA", plan: "GROUP" } } } } },
+  memberships: { create: { practice: { create: { name: "Chesapeake Sample Orthopedics", city: "Baltimore", state: "MD", plan: "GROUP" } } } } },
   include: { memberships: true } });
 const pid = practiceUser.memberships[0].practiceId;
 await db.job.createMany({ data: [
-  { practiceId: pid, type: "LOCUMS", profession: "PHYSICIAN", title: "Orthopedic surgeon, weekend call coverage", city: "Arlington", state: "VA", description: "Two weekends a month, Level III trauma backup.", payUnit: "HOUR", payMinCents: 26800, payMaxCents: 26800 },
-  { practiceId: pid, type: "PERMANENT", profession: "PA", title: "Orthopedic PA, clinic and first assist", city: "Arlington", state: "VA", description: "Four-day week, no call. Productivity bonus terms shared before you apply.", payUnit: "YEAR", payMinCents: 12500000, payMaxCents: 14000000 },
-  { practiceId: pid, type: "PER_DIEM", profession: "PT", title: "Outpatient physical therapist, Saturday clinic", city: "Arlington", state: "VA", description: "Pick shifts week to week. Cancellations inside 24 hours pay half the shift.", payUnit: "HOUR", payMinCents: 6250, payMaxCents: 6250 },
+  { practiceId: pid, type: "LOCUMS", profession: "PHYSICIAN", title: "Orthopedic surgeon, weekend call coverage", city: "Baltimore", state: "MD", description: "Two weekends a month, Level III trauma backup.", payUnit: "HOUR", payMinCents: 26800, payMaxCents: 26800 },
+  { practiceId: pid, type: "PERMANENT", profession: "PA", title: "Orthopedic PA, clinic and first assist", city: "Baltimore", state: "MD", description: "Four-day week, no call. Productivity bonus terms shared before you apply.", payUnit: "YEAR", payMinCents: 12500000, payMaxCents: 14000000 },
+  { practiceId: pid, type: "PER_DIEM", profession: "PT", title: "Outpatient physical therapist, Saturday clinic", city: "Towson", state: "MD", description: "Pick shifts week to week. Cancellations inside 24 hours pay half the shift.", payUnit: "HOUR", payMinCents: 6250, payMaxCents: 6250 },
 ] });
 
 const ortho = await db.room.findUnique({ where: { slug: "orthopedics" } });

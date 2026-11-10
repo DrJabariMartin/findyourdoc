@@ -13,6 +13,7 @@ import { clientIp } from "@/lib/client-ip";
 import { bookingCancelled, bookingConfirmation, newBookingForClinician, send } from "@/lib/email";
 import { visitFacts } from "@/lib/visit";
 import { fmtSlot } from "@/lib/time";
+import { launchStates, licensedStates, visitState } from "@/lib/market";
 
 const withClinician = { slot: { include: { clinician: { include: { user: { select: { name: true, email: true } } } } } } } as const;
 
@@ -27,6 +28,8 @@ const bookSchema = z.object({
   reason: z.string().trim().max(300).optional(),
   newPatient: z.enum(["yes", "no"]),
   governmentPlan: z.literal("on").optional(),
+  patientState: z.enum(STATES as [string, ...string[]]).optional(),
+  telehealthConsent: z.literal("on").optional(),
   consent: z.literal("on", { errorMap: () => ({ message: "Please agree to the booking terms" }) }),
 });
 
@@ -35,6 +38,14 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
   if (!hit("booking", await clientIp())) return { error: "Too many bookings from this connection. Please try again later." };
+  const slot = await db.availabilitySlot.findUnique({ where: { id: d.slotId }, include: { clinician: { include: { licenses: true } } } });
+  if (!slot) return { error: "Sorry, that time was just taken. Please choose another." };
+  // Licensure follows the patient: a video patient must be in a state where
+  // the clinician holds a verified license, inside the launch market.
+  const video = slot.mode === "VIDEO";
+  const where = visitState(slot.mode, slot.clinician, video ? d.patientState : undefined, launchStates());
+  if ("error" in where) return { error: where.error };
+  if (video && !d.telehealthConsent) return { error: "Please agree to the video visit terms" };
   const token = randomBytes(24).toString("base64url");
   try {
     await db.$transaction(async (tx) => {
@@ -55,6 +66,8 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
           newPatient: d.newPatient === "yes",
           governmentPlan: d.governmentPlan === "on" || isGovernmentPlan(d.insurance),
           accessToken: token,
+          patientState: video ? where.state : null,
+          telehealthConsent: video,
         },
       });
     });
@@ -65,7 +78,8 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
   if (appt) {
     const c = appt.slot.clinician;
     await send(bookingConfirmation(appt.patientEmail, visitFacts(appt)));
-    await send(newBookingForClinician(c.user.email, fmtSlot(appt.slot.startsAt, c.officeState, "long")));
+    const label = appt.slot.mode === "VIDEO" ? `${fmtSlot(appt.slot.startsAt, appt.patientState, "long")} (video visit)` : fmtSlot(appt.slot.startsAt, c.officeState, "long");
+    await send(newBookingForClinician(c.user.email, label));
   }
   redirect(`/appointments/${token}`);
 }
@@ -74,10 +88,10 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
  * A cancelled appointment keeps its slot for the record, so the same time is
  * offered again as a fresh slot.
  */
-async function reopen(slot: { id: string; clinicianId: string; startsAt: Date; minutes: number }) {
+async function reopen(slot: { id: string; clinicianId: string; startsAt: Date; minutes: number; mode: string }) {
   await db.availabilitySlot.update({ where: { id: slot.id }, data: { status: "REMOVED" } });
   if (slot.startsAt > new Date()) {
-    await db.availabilitySlot.create({ data: { clinicianId: slot.clinicianId, startsAt: slot.startsAt, minutes: slot.minutes } });
+    await db.availabilitySlot.create({ data: { clinicianId: slot.clinicianId, startsAt: slot.startsAt, minutes: slot.minutes, mode: slot.mode } });
   }
 }
 
@@ -108,6 +122,9 @@ export async function saveBookingProfile(_: BookState, form: FormData): Promise<
   const parsed = profileSchema.safeParse({ bookable: form.get("bookable") ?? "off", ...Object.fromEntries(form) });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
+  const licenses = await db.stateLicense.findMany({ where: { clinicianId: user.clinician.id } });
+  if (!licensedStates({ ...user.clinician, licenses }).includes(d.officeState))
+    return { error: `Your office is in ${d.officeState}, but we have no verified ${d.officeState} license for you. Ask us to add it, or choose your licensed state.` };
   await db.clinicianProfile.update({
     where: { id: user.clinician.id },
     data: {
@@ -131,6 +148,7 @@ const slotsSchema = z.object({
   start: z.string().regex(/^\d{2}:\d{2}$/),
   end: z.string().regex(/^\d{2}:\d{2}$/),
   tzOffset: z.coerce.number().int().min(-900).max(900),
+  mode: z.enum(["IN_PERSON", "VIDEO"]).default("IN_PERSON"),
 });
 
 /** Opens back-to-back visits between start and end on one day. */
@@ -138,7 +156,7 @@ export async function addSlots(_: BookState, form: FormData): Promise<BookState>
   const user = await requireVerifiedClinician();
   const parsed = slotsSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: "Choose a date, start time and end time" };
-  const { date, start, end, tzOffset } = parsed.data;
+  const { date, start, end, tzOffset, mode } = parsed.data;
   const toUtc = (hm: string) => new Date(Date.parse(`${date}T${hm}:00Z`) + tzOffset * 60_000);
   const from = toUtc(start);
   const to = toUtc(end);
@@ -152,7 +170,7 @@ export async function addSlots(_: BookState, form: FormData): Promise<BookState>
   const taken = new Set(existing.map((s) => s.startsAt.getTime()));
   const rows = [];
   for (let t = from.getTime(); t + mins * 60_000 <= to.getTime(); t += mins * 60_000) {
-    if (!taken.has(t)) rows.push({ clinicianId: user.clinician.id, startsAt: new Date(t), minutes: mins });
+    if (!taken.has(t)) rows.push({ clinicianId: user.clinician.id, startsAt: new Date(t), minutes: mins, mode });
   }
   if (rows.length === 0) return { error: "Those times are already open" };
   await db.availabilitySlot.createMany({ data: rows });
@@ -179,7 +197,7 @@ export async function recordVisit(form: FormData) {
   if (!appt || appt.status !== "BOOKED") return;
   await db.appointment.update({
     where: { id },
-    data: { status: outcome, feeCents: bookingFeeCents({ ...appt, status: outcome }) },
+    data: { status: outcome, feeCents: bookingFeeCents({ ...appt, status: outcome, feeWaived: !!appt.slot.clinician.feeWaiver }) },
   });
   // The office cancelled: tell the patient and reopen the time if it's still ahead.
   if (outcome === "CANCELLED") {

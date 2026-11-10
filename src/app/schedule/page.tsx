@@ -21,7 +21,12 @@ export default async function Schedule() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="h1">Patient booking</h1>
-        <p className="text-ink-2 mt-1">Patients book open times directly. We charge {dollars(4000)} only when a new patient who found you here completes a visit. No-shows, cancellations, existing patients and patients from your own website are free.</p>
+        {c.feeWaiver ? (
+          <p className="text-ink-2 mt-1">Patients book open times directly. Booking fees are waived for you: {c.feeWaiver}.</p>
+        ) : (
+          <p className="text-ink-2 mt-1">Patients book open times directly. We charge {dollars(4000)} only when a new patient who found you here completes a visit. No-shows, cancellations, existing patients and patients from your own website are free.</p>
+        )}
+        <p className="text-sm text-muted mt-1">Video visits: patients choose the state they&apos;ll be in, and we only accept states where you hold a verified license. Send each patient a secure link from your own video tool (one covered by your BAA), check their photo ID and confirm where they are at the start of the visit.</p>
       </div>
       <div className="flex flex-wrap gap-6 items-start">
         <section className="flex-[1_1_340px] card flex flex-col gap-3">
@@ -35,7 +40,7 @@ export default async function Schedule() {
             {appts.map((a) => (
               <div key={a.id} className="flex flex-wrap gap-3 items-center justify-between border-t border-line pt-3">
                 <div className="flex flex-col">
-                  <span className="font-semibold">{fmt(a.slot.startsAt)} · {a.patientName}</span>
+                  <span className="font-semibold">{fmt(a.slot.startsAt)} · {a.slot.mode === "VIDEO" ? `Video (patient in ${a.patientState}) · ` : ""}{a.patientName}</span>
                   <span className="text-sm text-muted">{a.newPatient ? "New patient" : "Existing patient"} · {a.insurance ?? "Self-pay"} · {a.patientPhone}{a.reason ? ` · ${a.reason}` : ""}</span>
                 </div>
                 <form action={recordVisit} className="flex gap-2">
@@ -55,7 +60,7 @@ export default async function Schedule() {
               {open.map((s) => (
                 <form key={s.id} action={removeSlot}>
                   <input type="hidden" name="slotId" value={s.id} />
-                  <button className="text-sm px-3 py-2 rounded-xl border border-field bg-white cursor-pointer" title="Remove this time">{fmt(s.startsAt)} ✕</button>
+                  <button className="text-sm px-3 py-2 rounded-xl border border-field bg-white cursor-pointer" title="Remove this time">{fmt(s.startsAt)}{s.mode === "VIDEO" ? " · Video" : ""} ✕</button>
                 </form>
               ))}
             </div>

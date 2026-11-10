@@ -5,7 +5,7 @@ import { UploadForm } from "./UploadForm";
 
 const KIND: Record<string, string> = {
   ID: "Government photo ID", LICENSE: "State license (primary source)", BOARD: "Board certification",
-  EDUCATION: "Degree from an accredited school", MALPRACTICE: "Malpractice history", DEA: "DEA registration", CASE_LOGS: "Case logs",
+  EDUCATION: "Degree from an accredited school", MALPRACTICE: "Malpractice history", DEA: "DEA registration", CDS: "State controlled substance registration (for example Maryland CDS)", CASE_LOGS: "Case logs",
 };
 const STATUS: Record<string, string> = { VERIFIED: "Verified", PENDING: "Checking", NEEDED: "Upload needed", EXPIRED: "Expired" };
 

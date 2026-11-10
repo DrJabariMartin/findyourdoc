@@ -84,8 +84,10 @@ export function isGovernmentPlan(insurance: string | null | undefined): boolean 
   return !!insurance && GOVERNMENT_PLAN.test(insurance);
 }
 
-export function bookingFeeCents(appt: { status: string; newPatient: boolean; source: string; governmentPlan?: boolean }): number {
-  if (appt.governmentPlan) return 0;
+// feeWaived: an admin waived this clinician's booking fees (for example the
+// founder's own practice during its free pilot). It never affects ranking.
+export function bookingFeeCents(appt: { status: string; newPatient: boolean; source: string; governmentPlan?: boolean; feeWaived?: boolean }): number {
+  if (appt.governmentPlan || appt.feeWaived) return 0;
   return appt.status === "COMPLETED" && appt.newPatient && appt.source === "FINDYOURDOC" ? BOOKING_FEE_CENTS : 0;
 }
 
