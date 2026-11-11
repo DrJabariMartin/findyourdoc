@@ -26,3 +26,27 @@ export function fmtSlot(d: Date, state: string | null | undefined, style: "short
   };
   return d.toLocaleString("en-US", { ...opts[style], timeZone });
 }
+
+/** Minutes the zone is ahead of UTC at that instant (New York in winter: -300). */
+function zoneOffsetMinutes(at: number, timeZone: string): number {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      .formatToParts(new Date(at)).map((x) => [x.type, x.value]),
+  );
+  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  return Math.round((asUtc - at) / 60_000);
+}
+
+/** "2030-03-12" + "09:00" on the office's wall clock, as a UTC instant. Handles daylight saving. */
+export function officeTimeToUtc(date: string, hm: string, state: string | null | undefined): Date {
+  const zone = zoneFor(state);
+  const naive = Date.parse(`${date}T${hm}:00Z`);
+  let t = naive - zoneOffsetMinutes(naive, zone) * 60_000;
+  t = naive - zoneOffsetMinutes(t, zone) * 60_000;
+  return new Date(t);
+}
+
+/** The same date string moved forward by whole days. */
+export function addDays(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}

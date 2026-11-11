@@ -13,7 +13,7 @@ import { clientIp } from "@/lib/client-ip";
 import { bookingCancelled, bookingConfirmation, bookingRescheduled, newBookingForClinician, reviewInvite, send } from "@/lib/email";
 import { insuranceChanged } from "@/lib/reviews";
 import { visitFacts } from "@/lib/visit";
-import { fmtSlot } from "@/lib/time";
+import { addDays, fmtSlot, officeTimeToUtc } from "@/lib/time";
 import { smsEnabled } from "@/lib/sms";
 
 const withClinician = { slot: { include: { clinician: { include: { user: { select: { name: true, email: true } } } } } } } as const;
@@ -182,30 +182,39 @@ const slotsSchema = z.object({
   start: z.string().regex(/^\d{2}:\d{2}$/),
   end: z.string().regex(/^\d{2}:\d{2}$/),
   tzOffset: z.coerce.number().int().min(-900).max(900),
+  weeks: z.coerce.number().int().min(1).max(12).default(1),
 });
 
-/** Opens back-to-back visits between start and end on one day. */
+/**
+ * Opens back-to-back visits between start and end, on one day or the same
+ * weekday for up to 12 weeks. Times are the office's wall clock, so a
+ * 9:00 start stays 9:00 across daylight-saving changes.
+ */
 export async function addSlots(_: BookState, form: FormData): Promise<BookState> {
   const user = await requireVerifiedClinician();
   const parsed = slotsSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: "Choose a date, start time and end time" };
-  const { date, start, end, tzOffset } = parsed.data;
-  const toUtc = (hm: string) => new Date(Date.parse(`${date}T${hm}:00Z`) + tzOffset * 60_000);
-  const from = toUtc(start);
-  const to = toUtc(end);
-  const mins = user.clinician.visitMinutes;
-  if (to <= from) return { error: "End time must be after start time" };
-  if (from < new Date()) return { error: "Choose a time in the future" };
-  const existing = await db.availabilitySlot.findMany({
-    where: { clinicianId: user.clinician.id, status: { not: "REMOVED" }, startsAt: { gte: from, lt: to } },
-    select: { startsAt: true },
-  });
-  const taken = new Set(existing.map((s) => s.startsAt.getTime()));
-  const rows = [];
-  for (let t = from.getTime(); t + mins * 60_000 <= to.getTime(); t += mins * 60_000) {
-    if (!taken.has(t)) rows.push({ clinicianId: user.clinician.id, startsAt: new Date(t), minutes: mins });
+  const { date, start, end, weeks } = parsed.data;
+  const c = user.clinician;
+  const state = c.officeState ?? c.licenseState;
+  const mins = c.visitMinutes;
+  if (end <= start) return { error: "End time must be after start time" };
+  const now = new Date();
+  const rows: { clinicianId: string; startsAt: Date; minutes: number }[] = [];
+  for (let w = 0; w < weeks; w++) {
+    const day = addDays(date, 7 * w);
+    const from = officeTimeToUtc(day, start, state);
+    const to = officeTimeToUtc(day, end, state);
+    const existing = await db.availabilitySlot.findMany({
+      where: { clinicianId: c.id, status: { not: "REMOVED" }, startsAt: { gte: from, lt: to } },
+      select: { startsAt: true },
+    });
+    const taken = new Set(existing.map((s) => s.startsAt.getTime()));
+    for (let t = from.getTime(); t + mins * 60_000 <= to.getTime(); t += mins * 60_000) {
+      if (t > now.getTime() && !taken.has(t)) rows.push({ clinicianId: c.id, startsAt: new Date(t), minutes: mins });
+    }
   }
-  if (rows.length === 0) return { error: "Those times are already open" };
+  if (rows.length === 0) return { error: "Those times are already open or in the past" };
   await db.availabilitySlot.createMany({ data: rows });
   revalidatePath("/schedule");
   return {};

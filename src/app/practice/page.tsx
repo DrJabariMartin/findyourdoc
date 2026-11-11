@@ -7,7 +7,7 @@ import { advance } from "../actions/jobs";
 import { medianResponseHours, responseLabel } from "@/lib/hiring";
 import { revokeInvite } from "../actions/team";
 import { seatLimit } from "@/lib/team";
-import TeamForm from "./TeamForm";
+import TeamForm, { ClinicianInviteForm } from "./TeamForm";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +23,10 @@ export default async function PracticeDash() {
   });
   const applicants = jobs.reduce((n, j) => n + j.applications.length, 0);
   const response = responseLabel(medianResponseHours(jobs.flatMap((j) => j.applications)));
-  const [team, invites] = await Promise.all([
+  const [team, invites, cInvites] = await Promise.all([
     db.practiceMember.findMany({ where: { practiceId: practice.id }, include: { user: { select: { name: true, email: true } } } }),
     db.practiceInvite.findMany({ where: { practiceId: practice.id, acceptedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } }),
+    db.clinicianInvite.findMany({ where: { practiceId: practice.id }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
   return (
     <div className="flex flex-col gap-6">
@@ -88,6 +89,18 @@ export default async function PracticeDash() {
         {team.length + invites.length < seatLimit(practice.plan)
           ? <TeamForm />
           : <p className="text-sm text-muted">Your Solo plan includes one admin. <a href="/pricing" className="underline">Group</a> adds your whole team.</p>}
+      </section>
+      <section className="card flex flex-col gap-3" aria-labelledby="your-clinicians">
+        <h2 id="your-clinicians" className="font-semibold text-lg">Bring your clinicians</h2>
+        <p className="text-sm text-muted">Invite the clinicians who already work with you so patients can book them here. Add their NPI and we fill in their sign-up from the national registry and your office details; they check it, upload documents, and we verify them.</p>
+        <ClinicianInviteForm />
+        {cInvites.length > 0 && (
+          <ul className="flex flex-col gap-1 text-sm">
+            {cInvites.map((i) => (
+              <li key={i.id}>{i.email} <span className="text-muted">· {i.acceptedAt ? "joined, verification in progress" : i.expiresAt < new Date() ? "invite expired" : `invited, expires ${i.expiresAt.toLocaleDateString("en-US")}`}</span></li>
+            ))}
+          </ul>
+        )}
       </section>
       <p className="text-sm text-muted">You never see candidates&apos; Lounge posts, anonymous handles or other practices&apos; pay offers.</p>
     </div>

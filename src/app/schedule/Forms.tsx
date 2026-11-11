@@ -42,7 +42,14 @@ export function SlotsForm() {
       <label className="label">Date<input type="date" name="date" className="field" required /></label>
       <label className="label">From<input type="time" name="start" defaultValue="09:00" className="field" required /></label>
       <label className="label">To<input type="time" name="end" defaultValue="12:00" className="field" required /></label>
+      <label className="label">Repeat
+        <select name="weeks" className="field" defaultValue="1">
+          <option value="1">This day only</option>
+          {[2, 4, 8, 12].map((n) => <option key={n} value={n}>Same day weekly, {n} weeks</option>)}
+        </select>
+      </label>
       <button className="btn" disabled={pending}>{pending ? "Adding…" : "Open these times"}</button>
+      <p className="text-xs text-muted w-full">Times are in your office&apos;s time zone. Visit length comes from your booking profile.</p>
       {state?.error && <p role="alert" className="text-sm text-red-700 w-full">{state.error}</p>}
     </form>
   );

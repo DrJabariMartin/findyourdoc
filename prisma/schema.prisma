@@ -163,6 +163,26 @@ model Practice {
   members   PracticeMember[]
   jobs      Job[]
   invites   PracticeInvite[]
+  clinicianInvites ClinicianInvite[]
+}
+
+// A practice invites its own clinicians to join. Details from the public NPI
+// registry are looked up once and pre-fill the clinician's sign-up, along with
+// the practice's office. The clinician still uploads documents and a person
+// still verifies them. Only the token's hash is stored.
+model ClinicianInvite {
+  id         String    @id @default(cuid())
+  practiceId String
+  practice   Practice  @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  email      String
+  npi        String?
+  prefill    String    // JSON: name, profession, specialty, licenseState, licenseNumber
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([practiceId])
 }
 
 // A practice member invites a teammate by email. The link holds a random

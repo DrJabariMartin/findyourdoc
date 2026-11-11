@@ -6,8 +6,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { startSession, endSession } from "@/lib/session";
 import { lookupNpi } from "@/lib/npi";
-import { anonLabel, PROFESSIONS, STATES } from "@/lib/labels";
-import { onClinicianSignup, safely } from "@/lib/automation/jobs";
+import { PROFESSIONS, STATES } from "@/lib/labels";
+import { createClinicianAccount } from "@/lib/clinician-account";
 import { guessProfession } from "@/lib/automation/rules";
 import { hit } from "@/lib/ratelimit";
 import { clientIp } from "@/lib/client-ip";
@@ -78,37 +78,7 @@ export async function signupClinician(_: FormState, form: FormData): Promise<For
   if (d.npi && (await db.clinicianProfile.findUnique({ where: { npi: d.npi } })))
     return { error: "That NPI is already registered. Contact support if this is you." };
 
-  const npiInfo = d.npi ? await lookupNpi(d.npi) : null;
-  const user = await db.user.create({
-    data: {
-      name: d.name,
-      email: d.email,
-      passwordHash: await bcrypt.hash(d.password, 12),
-      role: "CLINICIAN",
-      clinician: {
-        create: {
-          npi: d.npi || null,
-          profession: d.profession,
-          specialty: d.specialty,
-          licenseState: d.licenseState,
-          licenseNumber: d.licenseNumber,
-          region: anonLabel(d.specialty, d.profession, d.licenseState).split(", ")[1],
-          credentials: {
-            create: [
-              { kind: "ID", status: "NEEDED" },
-              { kind: "LICENSE", status: npiInfo?.licenseNumber === d.licenseNumber ? "PENDING" : "NEEDED" },
-              { kind: "BOARD", status: "NEEDED" },
-              { kind: "EDUCATION", status: "NEEDED" },
-              { kind: "MALPRACTICE", status: "NEEDED" },
-            ],
-          },
-        },
-      },
-    },
-    include: { clinician: true },
-  });
-  // Registry check + welcome email run straight away; a person still approves.
-  if (user.clinician) await safely(onClinicianSignup(user.clinician.id));
+  const user = await createClinicianAccount({ ...d, npi: d.npi || undefined });
   await startSession(user.id);
   redirect("/verify");
 }

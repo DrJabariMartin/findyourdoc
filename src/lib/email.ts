@@ -112,3 +112,11 @@ export function teamInvite(to: string, practice: string, inviter: string, url: s
     text: `${inviter} added you to ${practice}'s hiring team on FindYourDoc. Set up your account within 7 days:\n${url}\n\nIf you weren't expecting this, you can ignore this email.\n— FindYourDoc`,
   };
 }
+
+export function clinicianInvite(to: string, practice: string, url: string): Email {
+  return {
+    to,
+    subject: `${practice} invited you to FindYourDoc`,
+    text: `${practice} would like you on FindYourDoc, so patients can book with you and colleagues can find you. We've filled in your details from the national NPI registry; check them, choose a password and upload your documents. The link works for 14 days:\n${url}\n\nA person on our team verifies every clinician before they appear.\n— FindYourDoc`,
+  };
+}
