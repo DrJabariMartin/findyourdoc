@@ -4,13 +4,14 @@ import { fmtSlot } from "@/lib/time";
 import { PROFESSIONS } from "@/lib/labels";
 import { dollars } from "@/lib/fees";
 import { launchStates, licensedStates, videoStates } from "@/lib/market";
+import { isBookingCode } from "@/lib/booking-link";
 import BookForm from "./BookForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function Clinician({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ slot?: string }> }) {
+export default async function Clinician({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ slot?: string; ref?: string }> }) {
   const { id } = await params;
-  const { slot } = await searchParams;
+  const { slot, ref } = await searchParams;
   const p = await db.clinicianProfile.findFirst({
     where: { id, bookable: true, status: "VERIFIED" },
     include: {
@@ -49,7 +50,7 @@ export default async function Clinician({ params, searchParams }: { params: Prom
       </section>
       <section className="flex-[2_1_420px] card flex flex-col gap-4">
         <h2 className="font-semibold text-lg">Book a visit</h2>
-        {slots.length === 0 ? <p className="text-muted">No open times right now. Check back soon.</p> : <BookForm slots={slots} initial={slot} videoStates={video} office={p.officeName ?? "The office"} />}
+        {slots.length === 0 ? <p className="text-muted">No open times right now. Check back soon.</p> : <BookForm slots={slots} initial={slot} videoStates={video} office={p.officeName ?? "The office"} refCode={isBookingCode(ref) ? ref : undefined} />}
       </section>
     </div>
   );

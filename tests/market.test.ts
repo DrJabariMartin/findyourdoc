@@ -61,3 +61,17 @@ test("video visit emails say video, carry no address and no health details", () 
   const p = visitFacts({ accessToken: "t", slot: { startsAt: now, mode: "IN_PERSON", clinician } });
   assert.match(p.office, /100 Example Way/);
 });
+
+test("bookings through the practice's own link are never charged", async () => {
+  const { bookingSource, isBookingCode, newBookingCode } = await import("../src/lib/booking-link");
+  const code = newBookingCode();
+  assert.ok(isBookingCode(code));
+  assert.ok(!isBookingCode("../x"));
+  assert.equal(bookingSource(code, code), "PRACTICE_SITE");
+  assert.equal(bookingSource(code, "wrong-code-123"), "FINDYOURDOC");
+  assert.equal(bookingSource(null, code), "FINDYOURDOC", "no link made yet");
+  assert.equal(bookingSource(code, undefined), "FINDYOURDOC");
+  const visit = { status: "COMPLETED", newPatient: true };
+  assert.equal(bookingFeeCents({ ...visit, source: bookingSource(code, code) }), 0);
+  assert.equal(bookingFeeCents({ ...visit, source: bookingSource(code, undefined) }), 4000);
+});

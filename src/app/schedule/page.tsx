@@ -2,7 +2,8 @@ import { db } from "@/lib/db";
 import { fmtSlot } from "@/lib/time";
 import { requireVerifiedClinician } from "@/lib/session";
 import { dollars } from "@/lib/fees";
-import { recordVisit, removeSlot } from "../actions/booking";
+import { makeBookingLink, recordVisit, removeSlot } from "../actions/booking";
+import { appUrl } from "@/lib/email";
 import { ProfileForm, SlotsForm } from "./Forms";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,21 @@ export default async function Schedule() {
               </div>
             ))}
             <p className="text-sm text-muted">Completed visits so far: {fees._count}. Booking fees owed: {dollars(fees._sum.feeCents ?? 0)}.</p>
+          </div>
+          <div className="card flex flex-col gap-3">
+            <h2 className="font-semibold text-lg">Your own booking link</h2>
+            <p className="text-sm text-ink-2">Put this link on your website, your link-in-bio page, your emails and a QR code at the front desk. Patients who book through it are your own patients, so there is never a booking fee for them.</p>
+            {c.bookingCode ? (
+              <>
+                <input readOnly className="field font-mono text-sm" value={appUrl(`/b/${c.bookingCode}`)} aria-label="Your booking link" />
+                <label className="label">Button for your website (paste into your page&apos;s HTML)
+                  <textarea readOnly rows={3} className="field font-mono text-xs" value={`<a href="${appUrl(`/b/${c.bookingCode}`)}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#0B6E69;color:#fff;font-weight:600;text-decoration:none">Book online</a>`} />
+                </label>
+                <form action={makeBookingLink}><button className="btn-soft text-sm">Make a new link (the old one stops working)</button></form>
+              </>
+            ) : (
+              <form action={makeBookingLink}><button className="btn !py-2 !px-3 text-sm">Create my booking link</button></form>
+            )}
           </div>
           <div className="card flex flex-col gap-3">
             <h2 className="font-semibold text-lg">Open times</h2>

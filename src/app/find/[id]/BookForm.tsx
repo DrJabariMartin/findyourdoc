@@ -5,7 +5,7 @@ import { bookSlot } from "../../actions/booking";
 
 type Slot = { id: string; day: string; time: string; mode: string };
 
-export default function BookForm({ slots, initial, videoStates, office }: { slots: Slot[]; initial?: string; videoStates: string[]; office: string }) {
+export default function BookForm({ slots, initial, videoStates, office, refCode }: { slots: Slot[]; initial?: string; videoStates: string[]; office: string; refCode?: string }) {
   const [pick, setPick] = useState(slots.some((s) => s.id === initial) ? initial : undefined);
   const video = slots.find((s) => s.id === pick)?.mode === "VIDEO";
   const [state, action, pending] = useActionState(bookSlot, undefined);
@@ -28,6 +28,7 @@ export default function BookForm({ slots, initial, videoStates, office }: { slot
       {pick && (
         <div className="flex flex-col gap-3 border-t border-line pt-4">
           <input type="hidden" name="slotId" value={pick} />
+          {refCode && <input type="hidden" name="ref" value={refCode} />}
           <label className="label">Full name<input name="patientName" className="field" required autoComplete="name" /></label>
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="label">Email<input name="patientEmail" type="email" className="field" required autoComplete="email" /></label>

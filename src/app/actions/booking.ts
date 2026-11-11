@@ -14,6 +14,7 @@ import { bookingCancelled, bookingConfirmation, newBookingForClinician, send } f
 import { visitFacts } from "@/lib/visit";
 import { fmtSlot } from "@/lib/time";
 import { launchStates, licensedStates, visitState } from "@/lib/market";
+import { bookingSource, newBookingCode } from "@/lib/booking-link";
 
 const withClinician = { slot: { include: { clinician: { include: { user: { select: { name: true, email: true } } } } } } } as const;
 
@@ -30,6 +31,7 @@ const bookSchema = z.object({
   governmentPlan: z.literal("on").optional(),
   patientState: z.enum(STATES as [string, ...string[]]).optional(),
   telehealthConsent: z.literal("on").optional(),
+  ref: z.string().max(40).optional(),
   consent: z.literal("on", { errorMap: () => ({ message: "Please agree to the booking terms" }) }),
 });
 
@@ -68,6 +70,7 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
           accessToken: token,
           patientState: video ? where.state : null,
           telehealthConsent: video,
+          source: bookingSource(slot.clinician.bookingCode, d.ref),
         },
       });
     });
@@ -204,5 +207,12 @@ export async function recordVisit(form: FormData) {
     await reopen(appt.slot);
     await send(bookingCancelled(appt.patientEmail, visitFacts(appt)));
   }
+  revalidatePath("/schedule");
+}
+
+/** Creates (or replaces) the practice's own booking link. Replacing it turns the old link off. */
+export async function makeBookingLink() {
+  const user = await requireVerifiedClinician();
+  await db.clinicianProfile.update({ where: { id: user.clinician.id }, data: { bookingCode: newBookingCode() } });
   revalidatePath("/schedule");
 }

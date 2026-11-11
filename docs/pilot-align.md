@@ -20,3 +20,14 @@ Real patients book only after: the AWS account and AWS BAA are in place, FindYou
 3. Admin adds any DC or Virginia license, the fee waiver and the disclosure.
 4. Dr. Martin fills in the booking profile on `/schedule` (office 10805 Hickory Ridge Rd, Suite 200, Columbia, MD 21044; visit length; self-pay price; insurance) and opens video slots in time blocks kept for FindYourDoc, so they can't clash with Align's own calendar.
 5. Run 10 test bookings to staff addresses: confirmation, 24-hour reminder, patient cancel, office cancel, and record-visit (fee shows $0).
+
+## Align's own booking link (launch marketing)
+
+Pathway 1 (the Columbia orthopedic clinic, opening 2027-01-01) is marketed through Align's own channels: welcome.alignwell.app, the Beacons link-in-bio page, Instagram and Facebook, Google Business Profile, emails, and a QR code at the front desk. Every one of those points to Align's own FindYourDoc booking link.
+
+1. Signed in as the clinician, open **Patient booking** and press **Create my booking link**.
+2. Copy the link (`/b/<code>`) or the ready-made **Book online** button HTML onto the website and link-in-bio page.
+3. Bookings through that link are stored with source `PRACTICE_SITE` and never carry a booking fee, for Align and for every future practice. Search bookings stay `FINDYOURDOC`.
+4. **Make a new link** replaces the code; the old link stops working.
+
+Add `?utm_source=` tags only on the practice's own pages if wanted. FindYourDoc itself never puts ad pixels or tracking on patient pages.

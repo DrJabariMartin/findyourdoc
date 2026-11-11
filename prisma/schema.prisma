@@ -65,6 +65,9 @@ model ClinicianProfile {
   // Set by an admin only. Shown to patients on the profile, for example when
   // FindYourDoc's founder owns the practice.
   ownerDisclosure String?
+  // Secret part of the practice's own booking link (/b/<code>). Bookings that
+  // arrive through it are the practice's own patients: never a booking fee.
+  bookingCode    String?  @unique
 }
 
 // A license in one more state, added by an admin after checking the state
