@@ -37,3 +37,11 @@ export async function releasePost(form: FormData) {
   else await db.post.delete({ where: { id } });
   revalidatePath("/admin");
 }
+
+export async function releaseReply(form: FormData) {
+  await requireAdmin();
+  const id = String(form.get("replyId"));
+  if (form.get("verdict") === "release") await db.reply.update({ where: { id }, data: { flagged: false } });
+  else await db.reply.delete({ where: { id } });
+  revalidatePath("/admin");
+}

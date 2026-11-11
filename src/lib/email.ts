@@ -68,6 +68,26 @@ export function bookingCancelled(to: string, v: Omit<Visit, "manageUrl">): Email
   };
 }
 
+export function bookingRescheduled(to: string, v: Visit): Email {
+  return {
+    to,
+    subject: "Your appointment has a new time",
+    text: `Your visit is now ${v.when} with ${v.clinician}.\n\n${v.office}\n\nView, change or cancel: ${v.manageUrl}\n— FindYourDoc`,
+  };
+}
+
+/**
+ * Sent once after a completed visit. It offers nothing in return and says a
+ * critical review is as welcome as a kind one (FTC rule on reviews).
+ */
+export function reviewInvite(to: string, v: Visit): Email {
+  return {
+    to,
+    subject: "How was your visit?",
+    text: `You saw ${v.clinician} on ${v.when}. If you'd like, tell other patients how it went: ${v.manageUrl}\n\nEvery review is published, good or bad, and you can edit or delete yours at any time. Please leave out personal health details.\n— FindYourDoc`,
+  };
+}
+
 export function newBookingForClinician(to: string, when: string): Email {
   // The clinician sees patient details after logging in, not in the email.
   return {

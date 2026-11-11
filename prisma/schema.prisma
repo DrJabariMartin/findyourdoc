@@ -21,6 +21,7 @@ model User {
   clinician  ClinicianProfile?
   memberships PracticeMember[]
   namedPosts Post[]            @relation("NamedPosts")
+  namedReplies Reply[]         @relation("NamedReplies")
 }
 
 // Verified professional identity. A clinician is invisible to the Lounge and
@@ -54,7 +55,12 @@ model ClinicianProfile {
   insurance      String?  // comma-separated plans accepted
   selfPayCents   Int?
   visitMinutes   Int      @default(30)
+  // When the office last confirmed its insurance list. Shown to patients, and
+  // treated as unconfirmed after 90 days (stale directories are the top
+  // patient complaint about booking sites).
+  insuranceConfirmedAt DateTime?
   slots          AvailabilitySlot[]
+  reviews        Review[]
 }
 
 model Credential {
@@ -83,6 +89,7 @@ model AnonHandle {
   label     String       // e.g. "Orthopedic surgeon, Southeast"
   vault     HandleVault?
   posts     Post[]
+  replies   Reply[]
 }
 
 model Room {
@@ -107,6 +114,24 @@ model Post {
   handle      AnonHandle? @relation(fields: [handleId], references: [id])
   flagged     Boolean     @default(false) // set by the identifier check
   createdAt   DateTime    @default(now())
+  replies     Reply[]
+}
+
+// A reply to a Lounge post. Same rules as posts: named or anonymous (through
+// the handle vault, never a user id), and held when it looks identifying.
+model Reply {
+  id        String      @id @default(cuid())
+  postId    String
+  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  body      String
+  authorId  String?
+  author    User?       @relation("NamedReplies", fields: [authorId], references: [id])
+  handleId  String?
+  handle    AnonHandle? @relation(fields: [handleId], references: [id])
+  flagged   Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([postId, createdAt])
 }
 
 model Practice {
@@ -215,6 +240,31 @@ model Appointment {
   feeCents     Int              @default(0) // set when the visit is completed
   reminderSentAt DateTime?
   createdAt    DateTime         @default(now())
+  review       Review?
+}
+
+// A patient review. Only a completed visit booked here can leave one, so every
+// review is a verified patient. Rules (FTC 16 CFR 465): every review is shown,
+// good or bad; no incentives; the patient can edit or delete it at any time;
+// FindYourDoc never edits the words. A clinician can reply once, publicly, and
+// can report a review that breaks the content rules, which hides it only after
+// an admin agrees.
+model Review {
+  id            String           @id @default(cuid())
+  appointmentId String           @unique
+  appointment   Appointment      @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  clinicianId   String
+  clinician     ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  rating        Int              // 1 to 5
+  body          String?
+  reply         String?          // the clinician's one public reply
+  repliedAt     DateTime?
+  status        String           @default("SHOWN") // SHOWN | REPORTED | REMOVED
+  reportReason  String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([clinicianId, status])
 }
 
 // ---------------------------------------------------------------------------

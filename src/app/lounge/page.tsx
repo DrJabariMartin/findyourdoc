@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireVerifiedClinician } from "@/lib/session";
 import { anonLabel } from "@/lib/labels";
-import Composer from "./Composer";
+import Composer, { ReplyBox } from "./Composer";
 
 export default async function Lounge({ searchParams }: { searchParams: Promise<{ room?: string }> }) {
   const user = await requireVerifiedClinician();
@@ -12,7 +12,11 @@ export default async function Lounge({ searchParams }: { searchParams: Promise<{
   if (!room) return <p>No rooms yet. Run the seed script.</p>;
   const posts = await db.post.findMany({
     where: { roomId: room.id, flagged: false },
-    include: { author: { include: { clinician: true } }, handle: true },
+    include: {
+      author: { include: { clinician: true } },
+      handle: true,
+      replies: { where: { flagged: false }, include: { author: true, handle: true }, orderBy: { createdAt: "asc" } },
+    },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
@@ -51,6 +55,17 @@ export default async function Lounge({ searchParams }: { searchParams: Promise<{
               </div>
               <h2 className="font-semibold text-lg">{p.title}</h2>
               <p className="text-ink-2 whitespace-pre-wrap">{p.body}</p>
+              {p.replies.length > 0 && (
+                <div className="flex flex-col gap-3 border-l-2 border-line pl-4 mt-1" aria-label={`${p.replies.length} replies`}>
+                  {p.replies.map((r) => (
+                    <div key={r.id} className="flex flex-col gap-0.5">
+                      <span className="text-sm"><strong>{r.handle ? r.handle.label : r.author?.name ?? "Member"}</strong> <span className="text-muted">· {r.handle ? "Anonymous, verified" : "Named, verified"} · {r.createdAt.toLocaleDateString("en-US")}</span></span>
+                      <p className="text-ink-2 whitespace-pre-wrap">{r.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <ReplyBox postId={p.id} anonAs={anonLabel(c.specialty, c.profession, c.licenseState)} namedAs={user.name} />
             </article>
           );
         })}

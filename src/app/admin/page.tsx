@@ -1,11 +1,12 @@
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/session";
-import { decide, releasePost } from "../actions/admin";
+import { decide, releasePost, releaseReply } from "../actions/admin";
+import { decideReview } from "../actions/reviews";
 import { PROFESSIONS } from "@/lib/labels";
 
 export default async function Admin() {
   await requireAdmin();
-  const [pending, flagged, due, runs, outbox] = await Promise.all([
+  const [pending, flagged, due, runs, outbox, flaggedReplies, reported] = await Promise.all([
     db.clinicianProfile.findMany({
       where: {
         OR: [{ status: { in: ["PENDING", "LAPSED"] } }, { status: "VERIFIED", nextRecheckAt: { lte: new Date() } }],
@@ -17,6 +18,8 @@ export default async function Admin() {
     db.clinicianProfile.count({ where: { status: "VERIFIED", nextRecheckAt: { lte: new Date() } } }),
     db.automationRun.findMany({ orderBy: { startedAt: "desc" }, take: 14 }),
     db.notification.groupBy({ by: ["status"], _count: { _all: true } }),
+    db.reply.findMany({ where: { flagged: true }, include: { post: true }, orderBy: { createdAt: "asc" } }),
+    db.review.findMany({ where: { status: "REPORTED" }, include: { clinician: { include: { user: { select: { name: true } } } } }, orderBy: { updatedAt: "asc" } }),
   ]);
   const outboxCount = (status: string) => outbox.find((o) => o.status === status)?._count._all ?? 0;
   return (
@@ -76,6 +79,35 @@ export default async function Admin() {
               <input type="hidden" name="postId" value={p.id} />
               <button name="verdict" value="release" className="btn !py-2">Publish</button>
               <button name="verdict" value="remove" className="btn-soft">Remove</button>
+            </form>
+          </div>
+        ))}
+      </section>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-semibold text-lg">Replies held by the identifier check ({flaggedReplies.length})</h2>
+        {flaggedReplies.map((r) => (
+          <div key={r.id} className="card flex flex-col gap-2">
+            <div className="text-sm text-muted">Reply to: {r.post.title}</div>
+            <p className="text-ink-2 whitespace-pre-wrap">{r.body}</p>
+            <form action={releaseReply} className="flex gap-2">
+              <input type="hidden" name="replyId" value={r.id} />
+              <button name="verdict" value="release" className="btn !py-2">Publish</button>
+              <button name="verdict" value="remove" className="btn-soft">Remove</button>
+            </form>
+          </div>
+        ))}
+      </section>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-semibold text-lg">Reviews reported by clinicians ({reported.length})</h2>
+        <p className="text-sm text-muted">Remove a review only if it breaks a content rule (private details, threats or hate, not about a visit, spam). A low rating or criticism is never a reason. Reported reviews stay visible until you decide.</p>
+        {reported.map((r) => (
+          <div key={r.id} className="card flex flex-col gap-2">
+            <div className="text-sm text-muted">{r.clinician.user.name} · {r.rating} of 5 · reported for: {r.reportReason}</div>
+            {r.body && <p className="text-ink-2 whitespace-pre-wrap">{r.body}</p>}
+            <form action={decideReview} className="flex gap-2">
+              <input type="hidden" name="reviewId" value={r.id} />
+              <button name="verdict" value="keep" className="btn !py-2">Keep it published</button>
+              <button name="verdict" value="remove" className="btn-soft">Remove (breaks a rule)</button>
             </form>
           </div>
         ))}

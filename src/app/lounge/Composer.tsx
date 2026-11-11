@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { createPost } from "../actions/lounge";
+import { createPost, createReply } from "../actions/lounge";
 
 export default function Composer({ roomId, anonAs, namedAs }: { roomId: string; anonAs: string; namedAs: string }) {
   const [anon, setAnon] = useState(true);
@@ -26,6 +26,27 @@ export default function Composer({ roomId, anonAs, namedAs }: { roomId: string; 
       </div>
       {state?.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}
       {state?.held && <p role="status" className="text-sm text-warn">Your post looks like it may include a {state.held.join(", ")}. A moderator will review it before it appears.</p>}
+    </form>
+  );
+}
+
+export function ReplyBox({ postId, anonAs, namedAs }: { postId: string; anonAs: string; namedAs: string }) {
+  const [anon, setAnon] = useState(true);
+  const [state, action, pending] = useActionState(createReply, undefined);
+  return (
+    <form action={action} className="flex flex-col gap-2 border-t border-line pt-3" key={state?.ok ? Math.random() : "reply"}>
+      <input type="hidden" name="postId" value={postId} />
+      <input type="hidden" name="anonymous" value={anon ? "on" : "off"} />
+      <label className="sr-only" htmlFor={`reply-${postId}`}>Reply</label>
+      <textarea id={`reply-${postId}`} name="body" rows={2} required maxLength={4000} className="field resize-y" placeholder="Reply to this discussion" />
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <button type="button" aria-pressed={anon} onClick={() => setAnon(!anon)} className="text-sm text-muted underline cursor-pointer">
+          Replying as <strong className="text-ink">{anon ? anonAs : namedAs}</strong> (switch)
+        </button>
+        <button className="btn-soft text-sm" disabled={pending}>{pending ? "Sending…" : "Reply"}</button>
+      </div>
+      {state?.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}
+      {state?.held && <p role="status" className="text-sm text-warn">Your reply looks like it may include a {state.held.join(", ")}. A moderator will review it before it appears.</p>}
     </form>
   );
 }
