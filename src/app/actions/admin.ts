@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/session";
 import { onClinicianVerified, safely } from "@/lib/automation/jobs";
+import { notifyPostAuthor } from "@/lib/lounge";
 
 import { RECHECK_DAYS } from "@/lib/automation/rules";
 
@@ -35,5 +36,16 @@ export async function releasePost(form: FormData) {
   const id = String(form.get("postId"));
   if (form.get("verdict") === "release") await db.post.update({ where: { id }, data: { flagged: false } });
   else await db.post.delete({ where: { id } });
+  revalidatePath("/admin");
+}
+
+export async function releaseReply(form: FormData) {
+  await requireAdmin();
+  const id = String(form.get("replyId"));
+  if (form.get("verdict") === "release") {
+    await db.reply.update({ where: { id }, data: { flagged: false } });
+    await safely(notifyPostAuthor(id));
+  }
+  else await db.reply.delete({ where: { id } });
   revalidatePath("/admin");
 }

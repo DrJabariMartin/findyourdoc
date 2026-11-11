@@ -10,9 +10,11 @@ import { bookingFeeCents, isGovernmentPlan } from "@/lib/fees";
 import { STATES } from "@/lib/labels";
 import { hit } from "@/lib/ratelimit";
 import { clientIp } from "@/lib/client-ip";
-import { bookingCancelled, bookingConfirmation, newBookingForClinician, send } from "@/lib/email";
+import { bookingCancelled, bookingConfirmation, bookingRescheduled, newBookingForClinician, reviewInvite, send } from "@/lib/email";
+import { insuranceChanged } from "@/lib/reviews";
 import { visitFacts } from "@/lib/visit";
-import { fmtSlot } from "@/lib/time";
+import { addDays, fmtSlot, officeTimeToUtc } from "@/lib/time";
+import { smsEnabled } from "@/lib/sms";
 
 const withClinician = { slot: { include: { clinician: { include: { user: { select: { name: true, email: true } } } } } } } as const;
 
@@ -27,6 +29,7 @@ const bookSchema = z.object({
   reason: z.string().trim().max(300).optional(),
   newPatient: z.enum(["yes", "no"]),
   governmentPlan: z.literal("on").optional(),
+  smsOptIn: z.literal("on").optional(),
   consent: z.literal("on", { errorMap: () => ({ message: "Please agree to the booking terms" }) }),
 });
 
@@ -55,6 +58,7 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
           newPatient: d.newPatient === "yes",
           governmentPlan: d.governmentPlan === "on" || isGovernmentPlan(d.insurance),
           accessToken: token,
+          smsOptIn: d.smsOptIn === "on" && smsEnabled(),
         },
       });
     });
@@ -91,6 +95,49 @@ export async function cancelByPatient(form: FormData) {
   revalidatePath(`/appointments/${token}`);
 }
 
+/**
+ * The patient moves their visit to another open time with the same clinician.
+ * The new slot is claimed first, so the patient never ends up with no visit.
+ * Free for the practice and the patient; the booking fee still follows the
+ * visit, not the number of changes.
+ */
+export async function rescheduleByPatient(_: BookState, form: FormData): Promise<BookState> {
+  const token = String(form.get("token"));
+  const newSlotId = String(form.get("slotId"));
+  if (!hit("booking", await clientIp())) return { error: "Too many changes from this connection. Please try again later." };
+  const appt = await db.appointment.findUnique({ where: { accessToken: token }, include: withClinician });
+  if (!appt || appt.status !== "BOOKED") return { error: "This appointment can't be changed." };
+  if (appt.slot.startsAt <= new Date()) return { error: "This visit has already started. Please call the office." };
+  try {
+    await db.$transaction(async (tx) => {
+      const claimed = await tx.availabilitySlot.updateMany({
+        where: { id: newSlotId, clinicianId: appt.slot.clinicianId, status: "OPEN", startsAt: { gt: new Date() } },
+        data: { status: "BOOKED" },
+      });
+      if (claimed.count !== 1) throw new Error("taken");
+      await tx.appointment.update({ where: { id: appt.id }, data: { slotId: newSlotId, reminderSentAt: null, smsReminderSentAt: null } });
+    });
+  } catch {
+    return { error: "Sorry, that time was just taken. Please choose another." };
+  }
+  await reopen(appt.slot);
+  const moved = await db.appointment.findUnique({ where: { id: appt.id }, include: withClinician });
+  if (moved) {
+    await send(bookingRescheduled(moved.patientEmail, visitFacts(moved)));
+    await send(newBookingForClinician(moved.slot.clinician.user.email, `${fmtSlot(moved.slot.startsAt, moved.slot.clinician.officeState, "long")} (moved from ${fmtSlot(appt.slot.startsAt, appt.slot.clinician.officeState, "long")})`));
+  }
+  revalidatePath(`/appointments/${token}`);
+  return {};
+}
+
+/** The patient turns earlier-time alerts on or off from their private link. */
+export async function setEarlierAlert(form: FormData) {
+  const token = String(form.get("token"));
+  const on = form.get("on") === "1";
+  await db.appointment.updateMany({ where: { accessToken: token, status: "BOOKED" }, data: { earlierAlert: on } });
+  revalidatePath(`/appointments/${token}`);
+}
+
 const profileSchema = z.object({
   bookable: z.enum(["on", "off"]).default("off"),
   bio: z.string().trim().max(600).optional(),
@@ -101,6 +148,7 @@ const profileSchema = z.object({
   insurance: z.string().trim().max(400).optional(),
   selfPay: z.string().trim().regex(/^\d{0,5}$/, "Enter a whole-dollar price").optional(),
   visitMinutes: z.coerce.number().int().min(10).max(120),
+  confirmInsurance: z.literal("on").optional(),
 });
 
 export async function saveBookingProfile(_: BookState, form: FormData): Promise<BookState> {
@@ -108,9 +156,12 @@ export async function saveBookingProfile(_: BookState, form: FormData): Promise<
   const parsed = profileSchema.safeParse({ bookable: form.get("bookable") ?? "off", ...Object.fromEntries(form) });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
+  // Saving a changed list, or ticking "still correct", stamps today's date.
+  const confirmed = d.confirmInsurance === "on" || insuranceChanged(user.clinician.insurance, d.insurance || null);
   await db.clinicianProfile.update({
     where: { id: user.clinician.id },
     data: {
+      ...(confirmed ? { insuranceConfirmedAt: new Date() } : {}),
       bookable: d.bookable === "on",
       bio: d.bio || null,
       officeName: d.officeName,
@@ -131,30 +182,39 @@ const slotsSchema = z.object({
   start: z.string().regex(/^\d{2}:\d{2}$/),
   end: z.string().regex(/^\d{2}:\d{2}$/),
   tzOffset: z.coerce.number().int().min(-900).max(900),
+  weeks: z.coerce.number().int().min(1).max(12).default(1),
 });
 
-/** Opens back-to-back visits between start and end on one day. */
+/**
+ * Opens back-to-back visits between start and end, on one day or the same
+ * weekday for up to 12 weeks. Times are the office's wall clock, so a
+ * 9:00 start stays 9:00 across daylight-saving changes.
+ */
 export async function addSlots(_: BookState, form: FormData): Promise<BookState> {
   const user = await requireVerifiedClinician();
   const parsed = slotsSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: "Choose a date, start time and end time" };
-  const { date, start, end, tzOffset } = parsed.data;
-  const toUtc = (hm: string) => new Date(Date.parse(`${date}T${hm}:00Z`) + tzOffset * 60_000);
-  const from = toUtc(start);
-  const to = toUtc(end);
-  const mins = user.clinician.visitMinutes;
-  if (to <= from) return { error: "End time must be after start time" };
-  if (from < new Date()) return { error: "Choose a time in the future" };
-  const existing = await db.availabilitySlot.findMany({
-    where: { clinicianId: user.clinician.id, status: { not: "REMOVED" }, startsAt: { gte: from, lt: to } },
-    select: { startsAt: true },
-  });
-  const taken = new Set(existing.map((s) => s.startsAt.getTime()));
-  const rows = [];
-  for (let t = from.getTime(); t + mins * 60_000 <= to.getTime(); t += mins * 60_000) {
-    if (!taken.has(t)) rows.push({ clinicianId: user.clinician.id, startsAt: new Date(t), minutes: mins });
+  const { date, start, end, weeks } = parsed.data;
+  const c = user.clinician;
+  const state = c.officeState ?? c.licenseState;
+  const mins = c.visitMinutes;
+  if (end <= start) return { error: "End time must be after start time" };
+  const now = new Date();
+  const rows: { clinicianId: string; startsAt: Date; minutes: number }[] = [];
+  for (let w = 0; w < weeks; w++) {
+    const day = addDays(date, 7 * w);
+    const from = officeTimeToUtc(day, start, state);
+    const to = officeTimeToUtc(day, end, state);
+    const existing = await db.availabilitySlot.findMany({
+      where: { clinicianId: c.id, status: { not: "REMOVED" }, startsAt: { gte: from, lt: to } },
+      select: { startsAt: true },
+    });
+    const taken = new Set(existing.map((s) => s.startsAt.getTime()));
+    for (let t = from.getTime(); t + mins * 60_000 <= to.getTime(); t += mins * 60_000) {
+      if (t > now.getTime() && !taken.has(t)) rows.push({ clinicianId: c.id, startsAt: new Date(t), minutes: mins });
+    }
   }
-  if (rows.length === 0) return { error: "Those times are already open" };
+  if (rows.length === 0) return { error: "Those times are already open or in the past" };
   await db.availabilitySlot.createMany({ data: rows });
   revalidatePath("/schedule");
   return {};
@@ -163,7 +223,7 @@ export async function addSlots(_: BookState, form: FormData): Promise<BookState>
 export async function removeSlot(form: FormData) {
   const user = await requireVerifiedClinician();
   await db.availabilitySlot.updateMany({
-    where: { id: String(form.get("slotId")), clinicianId: user.clinician.id, status: "OPEN" },
+    where: { id: String(form.get("slotId")), clinicianId: user.clinician.id, status: { in: ["OPEN", "BUSY"] } },
     data: { status: "REMOVED" },
   });
   revalidatePath("/schedule");
@@ -181,6 +241,7 @@ export async function recordVisit(form: FormData) {
     where: { id },
     data: { status: outcome, feeCents: bookingFeeCents({ ...appt, status: outcome }) },
   });
+  if (outcome === "COMPLETED") await send(reviewInvite(appt.patientEmail, visitFacts(appt)));
   // The office cancelled: tell the patient and reopen the time if it's still ahead.
   if (outcome === "CANCELLED") {
     await reopen(appt.slot);

@@ -68,6 +68,26 @@ export function bookingCancelled(to: string, v: Omit<Visit, "manageUrl">): Email
   };
 }
 
+export function bookingRescheduled(to: string, v: Visit): Email {
+  return {
+    to,
+    subject: "Your appointment has a new time",
+    text: `Your visit is now ${v.when} with ${v.clinician}.\n\n${v.office}\n\nView, change or cancel: ${v.manageUrl}\n— FindYourDoc`,
+  };
+}
+
+/**
+ * Sent once after a completed visit. It offers nothing in return and says a
+ * critical review is as welcome as a kind one (FTC rule on reviews).
+ */
+export function reviewInvite(to: string, v: Visit): Email {
+  return {
+    to,
+    subject: "How was your visit?",
+    text: `You saw ${v.clinician} on ${v.when}. If you'd like, tell other patients how it went: ${v.manageUrl}\n\nEvery review is published, good or bad, and you can edit or delete yours at any time. Please leave out personal health details.\n— FindYourDoc`,
+  };
+}
+
 export function newBookingForClinician(to: string, when: string): Email {
   // The clinician sees patient details after logging in, not in the email.
   return {
@@ -82,5 +102,21 @@ export function passwordReset(to: string, url: string): Email {
     to,
     subject: "Reset your FindYourDoc password",
     text: `Use this link within 1 hour to set a new password:\n${url}\n\nIf you didn't ask for this, you can ignore this email.\n— FindYourDoc`,
+  };
+}
+
+export function teamInvite(to: string, practice: string, inviter: string, url: string): Email {
+  return {
+    to,
+    subject: `${inviter} invited you to ${practice} on FindYourDoc`,
+    text: `${inviter} added you to ${practice}'s hiring team on FindYourDoc. Set up your account within 7 days:\n${url}\n\nIf you weren't expecting this, you can ignore this email.\n— FindYourDoc`,
+  };
+}
+
+export function clinicianInvite(to: string, practice: string, url: string): Email {
+  return {
+    to,
+    subject: `${practice} invited you to FindYourDoc`,
+    text: `${practice} would like you on FindYourDoc, so patients can book with you and colleagues can find you. We've filled in your details from the national NPI registry; check them, choose a password and upload your documents. The link works for 14 days:\n${url}\n\nA person on our team verifies every clinician before they appear.\n— FindYourDoc`,
   };
 }

@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { saveBookingProfile, addSlots } from "../actions/booking";
 import { STATES } from "@/lib/labels";
 
-type P = { bookable: boolean; bio: string; officeName: string; officeAddress: string; officeCity: string; officeState: string; insurance: string; selfPay: string; visitMinutes: number };
+type P = { bookable: boolean; bio: string; officeName: string; officeAddress: string; officeCity: string; officeState: string; insurance: string; insuranceNote: string; selfPay: string; visitMinutes: number };
 
 export function ProfileForm({ c }: { c: P }) {
   const [state, action, pending] = useActionState(saveBookingProfile, undefined);
@@ -21,6 +21,7 @@ export function ProfileForm({ c }: { c: P }) {
         </label>
       </div>
       <label className="label">Insurance plans accepted (comma separated)<input name="insurance" defaultValue={c.insurance} className="field" placeholder="Aetna, Blue Cross, Medicare" /></label>
+      <label className="flex gap-2 items-start text-sm"><input type="checkbox" name="confirmInsurance" className="mt-1" /> This insurance list is still correct today. <span className="text-muted">({c.insuranceNote}) Patients see this date; lists older than 90 days are shown as unconfirmed.</span></label>
       <div className="grid grid-cols-2 gap-3">
         <label className="label">Self-pay price ($)<input name="selfPay" defaultValue={c.selfPay} className="field" inputMode="numeric" /></label>
         <label className="label">Visit length (minutes)<input name="visitMinutes" type="number" min={10} max={120} defaultValue={c.visitMinutes} className="field" /></label>
@@ -41,7 +42,14 @@ export function SlotsForm() {
       <label className="label">Date<input type="date" name="date" className="field" required /></label>
       <label className="label">From<input type="time" name="start" defaultValue="09:00" className="field" required /></label>
       <label className="label">To<input type="time" name="end" defaultValue="12:00" className="field" required /></label>
+      <label className="label">Repeat
+        <select name="weeks" className="field" defaultValue="1">
+          <option value="1">This day only</option>
+          {[2, 4, 8, 12].map((n) => <option key={n} value={n}>Same day weekly, {n} weeks</option>)}
+        </select>
+      </label>
       <button className="btn" disabled={pending}>{pending ? "Adding…" : "Open these times"}</button>
+      <p className="text-xs text-muted w-full">Times are in your office&apos;s time zone. Visit length comes from your booking profile.</p>
       {state?.error && <p role="alert" className="text-sm text-red-700 w-full">{state.error}</p>}
     </form>
   );

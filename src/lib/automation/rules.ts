@@ -33,6 +33,14 @@ const PROFESSION_SIGNS: Record<string, RegExp> = {
   PHARMACIST: /\b(PharmD|R\.?Ph)\b|pharmacist/i,
 };
 
+/** Best guess at a profession from an NPPES credential and taxonomy, for prefilling sign-up. */
+export function guessProfession(credential: string | null, taxonomy: string | null): string | null {
+  const text = `${credential ?? ""} ${taxonomy ?? ""}`;
+  // Most specific first: "nurse anesthetist" also says "nurse".
+  for (const p of ["CRNA", "NP", "PA", "PT", "OT", "PHARMACIST", "NURSE", "PHYSICIAN"]) if (PROFESSION_SIGNS[p].test(text)) return p;
+  return null;
+}
+
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 // Boards print the same license as "ME 012345", "ME12345" or "12345", so
 // compare the digits without leading zeros when there are any.
@@ -130,6 +138,17 @@ export function recheckDue(nextRecheckAt: Date | null, now: Date): boolean {
 // emails live in src/lib/email.ts.
 // ---------------------------------------------------------------------------
 
+/** Patients aren't offered a time less than this far away: too short to travel. */
+export const EARLIER_MIN_LEAD_MS = 2 * 60 * 60_000;
+
+/** The earliest open slot that is before the booked one and at least 2 hours away, or null. */
+export function pickEarlierSlot<T extends { startsAt: Date }>(open: T[], bookedAt: Date, now = new Date()): T | null {
+  const from = now.getTime() + EARLIER_MIN_LEAD_MS;
+  const fits = open.filter((s) => s.startsAt.getTime() >= from && s.startsAt < bookedAt);
+  fits.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  return fits[0] ?? null;
+}
+
 export type Message = { subject: string; body: string };
 
 export const messages = {
@@ -156,5 +175,13 @@ export const messages = {
   recordVisit: (name: string, count: number, appUrl: string): Message => ({
     subject: `Please record ${count} past visit${count === 1 ? "" : "s"}`,
     body: `Hi ${name},\n\n${count} visit${count === 1 ? " has" : "s have"} ended but ${count === 1 ? "is" : "are"} still marked as booked. Please mark each one completed, no-show or cancelled: ${appUrl}/schedule\n\nNo-shows and cancellations are never charged.\n\nFindYourDoc`,
+  }),
+  earlierTime: (when: string, link: string): Message => ({
+    subject: "An earlier appointment time just opened",
+    body: `An earlier time opened with the same clinician: ${when}.\n\nIf you'd like it, move your visit here before someone else books it: ${link}\n\nYour current time stays booked until you change it. To stop these alerts, turn them off on the same page.\n\nFindYourDoc`,
+  }),
+  loungeReply: (appUrl: string, roomSlug: string): Message => ({
+    subject: "New reply to your post in the Lounge",
+    body: `A verified member replied to your post. Read it in the Lounge: ${appUrl}/lounge?room=${roomSlug}\n\nFindYourDoc`,
   }),
 };

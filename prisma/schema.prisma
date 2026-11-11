@@ -21,6 +21,7 @@ model User {
   clinician  ClinicianProfile?
   memberships PracticeMember[]
   namedPosts Post[]            @relation("NamedPosts")
+  namedReplies Reply[]         @relation("NamedReplies")
 }
 
 // Verified professional identity. A clinician is invisible to the Lounge and
@@ -54,7 +55,31 @@ model ClinicianProfile {
   insurance      String?  // comma-separated plans accepted
   selfPayCents   Int?
   visitMinutes   Int      @default(30)
+  // When the office last confirmed its insurance list. Shown to patients, and
+  // treated as unconfirmed after 90 days (stale directories are the top
+  // patient complaint about booking sites).
+  insuranceConfirmedAt DateTime?
   slots          AvailabilitySlot[]
+  reviews        Review[]
+  calendars      CalendarLink[]
+}
+
+// A clinician's Google or Microsoft 365 calendar, read for busy times only.
+// Open slots that clash with a busy time are hidden (status BUSY) and come
+// back when the clash clears. We never read event titles, attendees or
+// bodies, and never write to the calendar. The refresh token is encrypted
+// with CALENDAR_TOKEN_KEY.
+model CalendarLink {
+  id              String           @id @default(cuid())
+  clinicianId     String
+  clinician       ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  provider        String           // GOOGLE | MICROSOFT
+  refreshTokenEnc String
+  syncedAt        DateTime?
+  error           String?
+  createdAt       DateTime         @default(now())
+
+  @@unique([clinicianId, provider])
 }
 
 model Credential {
@@ -83,6 +108,7 @@ model AnonHandle {
   label     String       // e.g. "Orthopedic surgeon, Southeast"
   vault     HandleVault?
   posts     Post[]
+  replies   Reply[]
 }
 
 model Room {
@@ -107,6 +133,24 @@ model Post {
   handle      AnonHandle? @relation(fields: [handleId], references: [id])
   flagged     Boolean     @default(false) // set by the identifier check
   createdAt   DateTime    @default(now())
+  replies     Reply[]
+}
+
+// A reply to a Lounge post. Same rules as posts: named or anonymous (through
+// the handle vault, never a user id), and held when it looks identifying.
+model Reply {
+  id        String      @id @default(cuid())
+  postId    String
+  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  body      String
+  authorId  String?
+  author    User?       @relation("NamedReplies", fields: [authorId], references: [id])
+  handleId  String?
+  handle    AnonHandle? @relation(fields: [handleId], references: [id])
+  flagged   Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([postId, createdAt])
 }
 
 model Practice {
@@ -118,6 +162,43 @@ model Practice {
   createdAt DateTime         @default(now())
   members   PracticeMember[]
   jobs      Job[]
+  invites   PracticeInvite[]
+  clinicianInvites ClinicianInvite[]
+}
+
+// A practice invites its own clinicians to join. Details from the public NPI
+// registry are looked up once and pre-fill the clinician's sign-up, along with
+// the practice's office. The clinician still uploads documents and a person
+// still verifies them. Only the token's hash is stored.
+model ClinicianInvite {
+  id         String    @id @default(cuid())
+  practiceId String
+  practice   Practice  @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  email      String
+  npi        String?
+  prefill    String    // JSON: name, profession, specialty, licenseState, licenseNumber
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([practiceId])
+}
+
+// A practice member invites a teammate by email. The link holds a random
+// token; only its hash is stored. Good for 7 days, used once.
+model PracticeInvite {
+  id         String    @id @default(cuid())
+  practiceId String
+  practice   Practice  @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  email      String
+  tokenHash  String    @unique
+  invitedBy  String    // user id
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([practiceId])
 }
 
 // Who wants FindYourDoc where we haven't opened yet. Counts by state decide
@@ -177,8 +258,28 @@ model Application {
   stage       String           @default("NEW") // NEW | INTERVIEW | OFFER | HIRED | DECLINED
   note        String?
   createdAt   DateTime         @default(now())
+  // Credential passport: the clinician agreed to let this practice open their
+  // verified credential documents. They can withdraw it at any time.
+  shareDocs   Boolean          @default(false)
+  // First time the practice acted (moved the stage or sent a message). Feeds
+  // the response time shown on the practice's listings.
+  firstResponseAt DateTime?
+  messages    ApplicationMessage[]
 
   @@unique([jobId, clinicianId])
+}
+
+// Messages between a practice and one applicant. Emails say only that a new
+// message is waiting; the words stay on FindYourDoc.
+model ApplicationMessage {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromPractice  Boolean
+  body          String
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, createdAt])
 }
 
 // Patient booking. Ranking is by fit and soonest availability only. Nothing a
@@ -189,7 +290,7 @@ model AvailabilitySlot {
   clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
   startsAt    DateTime
   minutes     Int
-  status      String           @default("OPEN") // OPEN | BOOKED | REMOVED
+  status      String           @default("OPEN") // OPEN | BOOKED | REMOVED | BUSY (clashes with the linked calendar)
   appointment Appointment?
 
   @@index([clinicianId, startsAt])
@@ -213,8 +314,38 @@ model Appointment {
   status       String           @default("BOOKED") // BOOKED | CANCELLED | COMPLETED | NO_SHOW
   accessToken  String           @unique // lets the patient view or cancel without an account
   feeCents     Int              @default(0) // set when the visit is completed
+  earlierAlert Boolean          @default(false) // patient asked to hear about an earlier time
   reminderSentAt DateTime?
+  // Text reminder: only with the patient's explicit opt-in at booking (TCPA).
+  // The text carries the time and the private link, nothing about the visit.
+  smsOptIn     Boolean          @default(false)
+  smsReminderSentAt DateTime?
   createdAt    DateTime         @default(now())
+  review       Review?
+}
+
+// A patient review. Only a completed visit booked here can leave one, so every
+// review is a verified patient. Rules (FTC 16 CFR 465): every review is shown,
+// good or bad; no incentives; the patient can edit or delete it at any time;
+// FindYourDoc never edits the words. A clinician can reply once, publicly, and
+// can report a review that breaks the content rules, which hides it only after
+// an admin agrees.
+model Review {
+  id            String           @id @default(cuid())
+  appointmentId String           @unique
+  appointment   Appointment      @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  clinicianId   String
+  clinician     ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  rating        Int              // 1 to 5
+  body          String?
+  reply         String?          // the clinician's one public reply
+  repliedAt     DateTime?
+  status        String           @default("SHOWN") // SHOWN | REPORTED | REMOVED
+  reportReason  String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([clinicianId, status])
 }
 
 // ---------------------------------------------------------------------------

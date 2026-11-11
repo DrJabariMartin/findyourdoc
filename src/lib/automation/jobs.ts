@@ -11,13 +11,16 @@ import {
   DAY_MS,
   expiryReminderBand,
   messages,
+  pickEarlierSlot,
   RECHECK_DAYS,
   recheckDue,
   visitNeedsRecording,
   type Message,
 } from "./rules";
 import { transport } from "./mailer";
-import { sendDueReminders } from "../reminders";
+import { sendDueReminders, sendDueTextReminders } from "../reminders";
+import { fmtSlot } from "../time";
+import { syncAllCalendars } from "../calendar-sync";
 
 const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -160,7 +163,35 @@ async function credentialReminders(): Promise<JobResult> {
 /** One reminder per booked visit in the next 24 hours (see src/lib/reminders.ts). */
 async function appointmentReminders(): Promise<JobResult> {
   const n = await sendDueReminders(db);
-  return `${n} patient reminder${n === 1 ? "" : "s"} sent`;
+  const texts = await sendDueTextReminders(db);
+  return `${n} patient reminder${n === 1 ? "" : "s"} sent, ${texts} by text`;
+}
+
+/**
+ * Patients who asked for it hear once about each earlier open time with the
+ * same clinician. The email names no clinician, specialty or reason: only the
+ * time and the patient's private link.
+ */
+async function earlierTimes(): Promise<JobResult> {
+  const now = new Date();
+  const waiting = await db.appointment.findMany({
+    where: { status: "BOOKED", earlierAlert: true, slot: { startsAt: { gt: now } } },
+    include: { slot: { include: { clinician: { select: { officeState: true } } } } },
+  });
+  let n = 0;
+  for (const a of waiting) {
+    const open = await db.availabilitySlot.findMany({
+      where: { clinicianId: a.slot.clinicianId, status: "OPEN", startsAt: { gt: now, lt: a.slot.startsAt } },
+      orderBy: { startsAt: "asc" },
+      take: 10,
+    });
+    const slot = pickEarlierSlot(open, a.slot.startsAt, now);
+    if (!slot) continue;
+    const when = fmtSlot(slot.startsAt, a.slot.clinician.officeState, "long");
+    await enqueue(`earlier:${a.id}:${slot.id}`, a.patientEmail, "EARLIER_TIME", messages.earlierTime(when, `${appUrl()}/appointments/${a.accessToken}`));
+    n++;
+  }
+  return `${n} earlier-time alert${n === 1 ? "" : "s"} queued`;
 }
 
 /** Nudge clinicians to record past visits, once a day each. */
@@ -238,7 +269,9 @@ export const JOBS: Record<string, () => Promise<JobResult>> = {
   "precheck-pending": precheckPending,
   "recheck-licenses": recheckLicenses,
   "credential-reminders": credentialReminders,
+  "calendar-sync": () => syncAllCalendars(),
   "appointment-reminders": appointmentReminders,
+  "earlier-times": earlierTimes,
   "record-visit-nudges": recordVisitNudges,
   "admin-digest": adminDigest,
   "deliver-outbox": deliverOutbox,

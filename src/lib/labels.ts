@@ -30,3 +30,13 @@ export function anonLabel(specialty: string, profession: string, state: string):
   const who = profession === "PHYSICIAN" ? specialty : PROFESSIONS[profession] ?? "Clinician";
   return `${who}, ${REGIONS[state] ?? "US"}`;
 }
+
+export const CREDENTIAL_LABELS: Record<string, string> = {
+  ID: "Photo ID",
+  LICENSE: "State license",
+  BOARD: "Board certification",
+  EDUCATION: "Education",
+  MALPRACTICE: "Malpractice insurance",
+  DEA: "DEA registration",
+  CASE_LOGS: "Case logs",
+};

@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/session";
 import { listingMoney } from "@/lib/fees";
 import { JOB_TYPES, PROFESSIONS } from "@/lib/labels";
 import { apply } from "../actions/jobs";
+import { medianResponseHours, responseLabel, RESPONSE_WINDOW_DAYS } from "@/lib/hiring";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,16 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<{ t
     include: { practice: true, applications: verified ? { where: { clinicianId: user!.clinician!.id } } : false },
     orderBy: { createdAt: "desc" },
   });
+  // Response time per practice, from its recent applications.
+  const since = new Date(Date.now() - RESPONSE_WINDOW_DAYS * 86_400_000);
+  const history = await db.application.findMany({
+    where: { createdAt: { gte: since }, job: { practiceId: { in: [...new Set(jobs.map((j) => j.practiceId))] } } },
+    select: { createdAt: true, firstResponseAt: true, job: { select: { practiceId: true } } },
+  });
+  const responseByPractice = new Map<string, string>();
+  for (const pid of new Set(jobs.map((j) => j.practiceId))) {
+    responseByPractice.set(pid, responseLabel(medianResponseHours(history.filter((h) => h.job.practiceId === pid))));
+  }
   const pill = (t: string | undefined, label: string) => (
     <Link key={label} href={t ? `/jobs?type=${t}` : "/jobs"} aria-current={type === t ? "true" : undefined}
       className={`text-sm font-semibold px-4 py-2.5 rounded-full border ${type === t ? "bg-brand text-white border-brand" : "bg-white border-field"}`}>{label}</Link>
@@ -36,6 +47,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<{ t
               <div>
                 <h2 className="font-semibold text-lg">{j.title}</h2>
                 <span className="text-sm text-muted">{j.practice.name} · {j.city}, {j.state}</span>
+                <span className="block text-xs text-muted">{responseByPractice.get(j.practiceId)}</span>
               </div>
               <div className="flex gap-1.5 flex-wrap"><span className="pill">{JOB_TYPES[j.type]}</span><span className="pill !bg-[#EEF2F5] !text-ink-2">{PROFESSIONS[j.profession]}</span></div>
             </div>
@@ -45,12 +57,16 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<{ t
               <div className="flex flex-col"><span className="text-xs text-muted">FindYourDoc fee</span><span className="font-semibold">{m.ourFee}</span></div>
             </div>
             <p className="text-ink-2 whitespace-pre-wrap">{j.description}</p>
-            {verified && (
-              <form action={apply}>
+            {verified && (applied ? (
+              <Link href={`/applications/${j.applications[0].id}`} className="btn-soft self-start">Applied · messages and credential passport</Link>
+            ) : (
+              <form action={apply} className="flex flex-col gap-2">
                 <input type="hidden" name="jobId" value={j.id} />
-                <button className={applied ? "btn-soft" : "btn"} disabled={applied}>{applied ? "Credential packet sent" : "Apply with credential packet"}</button>
+                <label className="flex gap-2 items-start text-sm"><input type="checkbox" name="shareDocs" defaultChecked className="mt-1" />
+                  Share my verified credential documents with this practice so it can start credentialing now. I can stop sharing at any time.</label>
+                <button className="btn self-start">Apply with credential passport</button>
               </form>
-            )}
+            ))}
           </article>
         );
       })}
