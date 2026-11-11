@@ -6,18 +6,23 @@ import { recordVisit, removeSlot } from "../actions/booking";
 import { replyToReview, reportReview } from "../actions/reviews";
 import { REPORT_REASONS, insuranceStatus, summarize } from "@/lib/reviews";
 import { ProfileForm, SlotsForm } from "./Forms";
+import { disconnectCalendar, syncCalendarNow } from "../actions/calendar";
+import { calendarEnabled, PROVIDER_LABELS, PROVIDERS } from "@/lib/calendar";
 
 export const dynamic = "force-dynamic";
 
-export default async function Schedule() {
+export default async function Schedule({ searchParams }: { searchParams: Promise<{ calendar?: string }> }) {
+  const { calendar: calNote } = await searchParams;
   const user = await requireVerifiedClinician();
   const c = user.clinician;
   const now = new Date();
-  const [open, appts, fees, reviews] = await Promise.all([
+  const [open, appts, fees, reviews, links, busyCount] = await Promise.all([
     db.availabilitySlot.findMany({ where: { clinicianId: c.id, status: "OPEN", startsAt: { gt: now } }, orderBy: { startsAt: "asc" }, take: 60 }),
     db.appointment.findMany({ where: { slot: { clinicianId: c.id }, status: "BOOKED" }, include: { slot: true }, orderBy: { slot: { startsAt: "asc" } } }),
     db.appointment.aggregate({ where: { slot: { clinicianId: c.id }, status: "COMPLETED" }, _sum: { feeCents: true }, _count: true }),
     db.review.findMany({ where: { clinicianId: c.id, status: { not: "REMOVED" } }, orderBy: { createdAt: "desc" }, take: 50 }),
+    db.calendarLink.findMany({ where: { clinicianId: c.id } }),
+    db.availabilitySlot.count({ where: { clinicianId: c.id, status: "BUSY", startsAt: { gt: now } } }),
   ]);
   const rating = summarize(reviews.filter((r) => r.status === "SHOWN").map((r) => r.rating));
   const fmt = (d: Date) => fmtSlot(d, c.officeState ?? c.licenseState);
@@ -76,6 +81,33 @@ export default async function Schedule() {
                 )}
               </div>
             ))}
+          </div>
+          <div className="card flex flex-col gap-3">
+            <h2 className="font-semibold text-lg">Calendar sync</h2>
+            <p className="text-sm text-muted">Link your calendar and we hide any open time that clashes with something on it, then bring it back if the clash goes away. We read busy times only, never what your events say, and we never write to your calendar. Checked every hour.</p>
+            {calNote === "linked" && <p role="status" className="text-sm text-brand">Calendar linked.</p>}
+            {calNote === "failed" && <p role="alert" className="text-sm text-red-700">We couldn&apos;t link that calendar. Please try again.</p>}
+            {PROVIDERS.map((p) => {
+              const l = links.find((x) => x.provider === p);
+              if (l) return (
+                <div key={p} className="flex flex-wrap gap-3 items-center justify-between border-t border-line pt-3">
+                  <div className="flex flex-col">
+                    <span className="font-semibold">{PROVIDER_LABELS[p]}: linked</span>
+                    <span className={`text-sm ${l.error ? "text-red-700" : "text-muted"}`}>{l.error ? "Last check failed. Your times stay as they were until it works again." : l.syncedAt ? `Last checked ${fmt(l.syncedAt)}` : "Not checked yet"}</span>
+                  </div>
+                  <form action={disconnectCalendar}><input type="hidden" name="provider" value={p} /><button className="btn-soft text-sm">Unlink</button></form>
+                </div>
+              );
+              return calendarEnabled(p)
+                ? <a key={p} href={`/api/calendar/${p.toLowerCase()}/start`} className="btn-soft self-start text-sm">Link {PROVIDER_LABELS[p]}</a>
+                : <span key={p} className="text-sm text-muted">{PROVIDER_LABELS[p]}: coming soon</span>;
+            })}
+            {links.length > 0 && (
+              <form action={syncCalendarNow} className="flex flex-wrap gap-3 items-center">
+                <button className="btn-soft text-sm">Check now</button>
+                {busyCount > 0 && <span className="text-sm text-muted">{busyCount} open time{busyCount === 1 ? " is" : "s are"} hidden because your calendar shows you busy.</span>}
+              </form>
+            )}
           </div>
           <div className="card flex flex-col gap-3">
             <h2 className="font-semibold text-lg">Open times</h2>

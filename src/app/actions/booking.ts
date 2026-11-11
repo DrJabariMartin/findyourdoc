@@ -14,6 +14,7 @@ import { bookingCancelled, bookingConfirmation, bookingRescheduled, newBookingFo
 import { insuranceChanged } from "@/lib/reviews";
 import { visitFacts } from "@/lib/visit";
 import { fmtSlot } from "@/lib/time";
+import { smsEnabled } from "@/lib/sms";
 
 const withClinician = { slot: { include: { clinician: { include: { user: { select: { name: true, email: true } } } } } } } as const;
 
@@ -28,6 +29,7 @@ const bookSchema = z.object({
   reason: z.string().trim().max(300).optional(),
   newPatient: z.enum(["yes", "no"]),
   governmentPlan: z.literal("on").optional(),
+  smsOptIn: z.literal("on").optional(),
   consent: z.literal("on", { errorMap: () => ({ message: "Please agree to the booking terms" }) }),
 });
 
@@ -56,6 +58,7 @@ export async function bookSlot(_: BookState, form: FormData): Promise<BookState>
           newPatient: d.newPatient === "yes",
           governmentPlan: d.governmentPlan === "on" || isGovernmentPlan(d.insurance),
           accessToken: token,
+          smsOptIn: d.smsOptIn === "on" && smsEnabled(),
         },
       });
     });
@@ -112,7 +115,7 @@ export async function rescheduleByPatient(_: BookState, form: FormData): Promise
         data: { status: "BOOKED" },
       });
       if (claimed.count !== 1) throw new Error("taken");
-      await tx.appointment.update({ where: { id: appt.id }, data: { slotId: newSlotId, reminderSentAt: null } });
+      await tx.appointment.update({ where: { id: appt.id }, data: { slotId: newSlotId, reminderSentAt: null, smsReminderSentAt: null } });
     });
   } catch {
     return { error: "Sorry, that time was just taken. Please choose another." };
@@ -211,7 +214,7 @@ export async function addSlots(_: BookState, form: FormData): Promise<BookState>
 export async function removeSlot(form: FormData) {
   const user = await requireVerifiedClinician();
   await db.availabilitySlot.updateMany({
-    where: { id: String(form.get("slotId")), clinicianId: user.clinician.id, status: "OPEN" },
+    where: { id: String(form.get("slotId")), clinicianId: user.clinician.id, status: { in: ["OPEN", "BUSY"] } },
     data: { status: "REMOVED" },
   });
   revalidatePath("/schedule");

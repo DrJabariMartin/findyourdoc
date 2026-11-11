@@ -104,3 +104,11 @@ export function passwordReset(to: string, url: string): Email {
     text: `Use this link within 1 hour to set a new password:\n${url}\n\nIf you didn't ask for this, you can ignore this email.\n— FindYourDoc`,
   };
 }
+
+export function teamInvite(to: string, practice: string, inviter: string, url: string): Email {
+  return {
+    to,
+    subject: `${inviter} invited you to ${practice} on FindYourDoc`,
+    text: `${inviter} added you to ${practice}'s hiring team on FindYourDoc. Set up your account within 7 days:\n${url}\n\nIf you weren't expecting this, you can ignore this email.\n— FindYourDoc`,
+  };
+}

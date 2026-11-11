@@ -5,7 +5,7 @@ import { bookSlot } from "../../actions/booking";
 
 type Slot = { id: string; day: string; time: string };
 
-export default function BookForm({ slots, initial }: { slots: Slot[]; initial?: string }) {
+export default function BookForm({ slots, initial, texts = false }: { slots: Slot[]; initial?: string; texts?: boolean }) {
   const [pick, setPick] = useState(slots.some((s) => s.id === initial) ? initial : undefined);
   const [state, action, pending] = useActionState(bookSlot, undefined);
   const days = [...new Set(slots.map((s) => s.day))];
@@ -40,6 +40,10 @@ export default function BookForm({ slots, initial }: { slots: Slot[]; initial?: 
             <label className="flex gap-2 items-center"><input type="radio" name="newPatient" value="yes" defaultChecked /> No, I&apos;m new</label>
             <label className="flex gap-2 items-center"><input type="radio" name="newPatient" value="no" /> Yes</label>
           </fieldset>
+          {texts && (
+            <label className="flex gap-2 items-start text-sm"><input type="checkbox" name="smsOptIn" className="mt-1" />
+              Text me one reminder the day before at this mobile number. It shows only the time and a link. Message and data rates may apply. Reply STOP to opt out.</label>
+          )}
           <label className="flex gap-2 items-start text-sm"><input type="checkbox" name="consent" className="mt-1" required />
             I agree that my details are shared only with this clinician&apos;s office to arrange my visit. FindYourDoc does not sell patient data.</label>
           {state?.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}

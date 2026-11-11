@@ -18,8 +18,9 @@ import {
   type Message,
 } from "./rules";
 import { transport } from "./mailer";
-import { sendDueReminders } from "../reminders";
+import { sendDueReminders, sendDueTextReminders } from "../reminders";
 import { fmtSlot } from "../time";
+import { syncAllCalendars } from "../calendar-sync";
 
 const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -162,7 +163,8 @@ async function credentialReminders(): Promise<JobResult> {
 /** One reminder per booked visit in the next 24 hours (see src/lib/reminders.ts). */
 async function appointmentReminders(): Promise<JobResult> {
   const n = await sendDueReminders(db);
-  return `${n} patient reminder${n === 1 ? "" : "s"} sent`;
+  const texts = await sendDueTextReminders(db);
+  return `${n} patient reminder${n === 1 ? "" : "s"} sent, ${texts} by text`;
 }
 
 /**
@@ -267,6 +269,7 @@ export const JOBS: Record<string, () => Promise<JobResult>> = {
   "precheck-pending": precheckPending,
   "recheck-licenses": recheckLicenses,
   "credential-reminders": credentialReminders,
+  "calendar-sync": () => syncAllCalendars(),
   "appointment-reminders": appointmentReminders,
   "earlier-times": earlierTimes,
   "record-visit-nudges": recordVisitNudges,

@@ -61,6 +61,25 @@ model ClinicianProfile {
   insuranceConfirmedAt DateTime?
   slots          AvailabilitySlot[]
   reviews        Review[]
+  calendars      CalendarLink[]
+}
+
+// A clinician's Google or Microsoft 365 calendar, read for busy times only.
+// Open slots that clash with a busy time are hidden (status BUSY) and come
+// back when the clash clears. We never read event titles, attendees or
+// bodies, and never write to the calendar. The refresh token is encrypted
+// with CALENDAR_TOKEN_KEY.
+model CalendarLink {
+  id              String           @id @default(cuid())
+  clinicianId     String
+  clinician       ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  provider        String           // GOOGLE | MICROSOFT
+  refreshTokenEnc String
+  syncedAt        DateTime?
+  error           String?
+  createdAt       DateTime         @default(now())
+
+  @@unique([clinicianId, provider])
 }
 
 model Credential {
@@ -143,6 +162,23 @@ model Practice {
   createdAt DateTime         @default(now())
   members   PracticeMember[]
   jobs      Job[]
+  invites   PracticeInvite[]
+}
+
+// A practice member invites a teammate by email. The link holds a random
+// token; only its hash is stored. Good for 7 days, used once.
+model PracticeInvite {
+  id         String    @id @default(cuid())
+  practiceId String
+  practice   Practice  @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  email      String
+  tokenHash  String    @unique
+  invitedBy  String    // user id
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([practiceId])
 }
 
 // Who wants FindYourDoc where we haven't opened yet. Counts by state decide
@@ -234,7 +270,7 @@ model AvailabilitySlot {
   clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
   startsAt    DateTime
   minutes     Int
-  status      String           @default("OPEN") // OPEN | BOOKED | REMOVED
+  status      String           @default("OPEN") // OPEN | BOOKED | REMOVED | BUSY (clashes with the linked calendar)
   appointment Appointment?
 
   @@index([clinicianId, startsAt])
@@ -260,6 +296,10 @@ model Appointment {
   feeCents     Int              @default(0) // set when the visit is completed
   earlierAlert Boolean          @default(false) // patient asked to hear about an earlier time
   reminderSentAt DateTime?
+  // Text reminder: only with the patient's explicit opt-in at booking (TCPA).
+  // The text carries the time and the private link, nothing about the visit.
+  smsOptIn     Boolean          @default(false)
+  smsReminderSentAt DateTime?
   createdAt    DateTime         @default(now())
   review       Review?
 }

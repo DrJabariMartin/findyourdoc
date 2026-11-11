@@ -5,6 +5,9 @@ import { listingMoney } from "@/lib/fees";
 import { JOB_TYPES, PROFESSIONS } from "@/lib/labels";
 import { advance } from "../actions/jobs";
 import { medianResponseHours, responseLabel } from "@/lib/hiring";
+import { revokeInvite } from "../actions/team";
+import { seatLimit } from "@/lib/team";
+import TeamForm from "./TeamForm";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +23,10 @@ export default async function PracticeDash() {
   });
   const applicants = jobs.reduce((n, j) => n + j.applications.length, 0);
   const response = responseLabel(medianResponseHours(jobs.flatMap((j) => j.applications)));
+  const [team, invites] = await Promise.all([
+    db.practiceMember.findMany({ where: { practiceId: practice.id }, include: { user: { select: { name: true, email: true } } } }),
+    db.practiceInvite.findMany({ where: { practiceId: practice.id, acceptedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } }),
+  ]);
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap justify-between items-end gap-3">
@@ -67,6 +74,21 @@ export default async function PracticeDash() {
           </section>
         );
       })}
+      <section className="card flex flex-col gap-3" aria-labelledby="team">
+        <h2 id="team" className="font-semibold text-lg">Your team</h2>
+        <ul className="flex flex-col gap-1 text-sm">
+          {team.map((m) => <li key={m.id}><strong>{m.user.name}</strong> <span className="text-muted">· {m.user.email}</span></li>)}
+          {invites.map((i) => (
+            <li key={i.id} className="flex flex-wrap gap-2 items-center">
+              <span>{i.email} <span className="text-muted">· invited, expires {i.expiresAt.toLocaleDateString("en-US")}</span></span>
+              <form action={revokeInvite}><input type="hidden" name="inviteId" value={i.id} /><button className="text-sm underline text-muted cursor-pointer">Cancel</button></form>
+            </li>
+          ))}
+        </ul>
+        {team.length + invites.length < seatLimit(practice.plan)
+          ? <TeamForm />
+          : <p className="text-sm text-muted">Your Solo plan includes one admin. <a href="/pricing" className="underline">Group</a> adds your whole team.</p>}
+      </section>
       <p className="text-sm text-muted">You never see candidates&apos; Lounge posts, anonymous handles or other practices&apos; pay offers.</p>
     </div>
   );

@@ -6,6 +6,7 @@ import { dollars } from "@/lib/fees";
 import { insuranceStatus, lastVerified, summarize } from "@/lib/reviews";
 import { appUrl } from "@/lib/email";
 import BookForm from "./BookForm";
+import { smsEnabled } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +66,7 @@ export default async function Clinician({ params, searchParams }: { params: Prom
       </section>
       <section className="flex-[2_1_420px] card flex flex-col gap-4">
         <h2 className="font-semibold text-lg">Book a visit</h2>
-        {slots.length === 0 ? <p className="text-muted">No open times right now. Check back soon.</p> : <BookForm slots={slots} initial={slot} />}
+        {slots.length === 0 ? <p className="text-muted">No open times right now. Check back soon.</p> : <BookForm slots={slots} initial={slot} texts={smsEnabled()} />}
       </section>
       <section id="reviews" className="flex-[1_1_100%] card flex flex-col gap-3">
         <h2 className="font-semibold text-lg">Reviews from verified patients</h2>
