@@ -18,6 +18,7 @@ import {
 } from "./rules";
 import { transport } from "./mailer";
 import { sendDueReminders } from "../reminders";
+import { leadAlert, practiceWelcome } from "../leads";
 
 const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -46,6 +47,25 @@ export async function onClinicianVerified(clinicianId: string) {
   const c = await db.clinicianProfile.findUnique({ where: { id: clinicianId }, include: { user: true } });
   if (!c) return;
   await enqueue(`verified:${c.id}:${c.verifiedAt?.toISOString()}`, c.user.email, "VERIFIED", messages.verified(c.user.name, appUrl()));
+}
+
+/**
+ * New practice on the waitlist (speed to lead): the practice gets the
+ * calculator and every admin gets an alert, sent right away rather than on
+ * the next outbox run. Queued once per entry, so re-joining sends nothing.
+ */
+export async function onPracticeLead(entryId: string) {
+  const e = await db.waitlistEntry.findUnique({ where: { id: entryId } });
+  if (!e || e.role !== "PRACTICE") return;
+  const keys = [`lead-welcome:${e.id}`];
+  await enqueue(keys[0], e.email, "LEAD_WELCOME", practiceWelcome(appUrl()));
+  const admins = await db.user.findMany({ where: { role: "ADMIN" } });
+  for (const a of admins) {
+    const key = `lead-alert:${e.id}:${a.id}`;
+    keys.push(key);
+    await enqueue(key, a.email, "LEAD_ALERT", leadAlert(e, appUrl()));
+  }
+  await deliver(await db.notification.findMany({ where: { dedupeKey: { in: keys }, status: "PENDING" } }));
 }
 
 /** New job: alert every verified clinician whose profession and license state fit. */
@@ -206,12 +226,18 @@ async function adminDigest(): Promise<JobResult> {
 
 /** Sends due emails through the configured transport. */
 async function deliverOutbox(): Promise<JobResult> {
-  const t = transport();
   const due = await db.notification.findMany({
     where: { status: "PENDING", sendAfter: { lte: new Date() }, attempts: { lt: 5 } },
     orderBy: { createdAt: "asc" },
     take: 200,
   });
+  return deliver(due);
+}
+
+type Queued = { id: string; toEmail: string; subject: string; body: string; attempts: number };
+
+async function deliver(due: Queued[]): Promise<JobResult> {
+  const t = transport();
   let sent = 0;
   let held = 0;
   let failed = 0;

@@ -131,6 +131,13 @@ model WaitlistEntry {
   state         String
   city          String?
   depositIntent Boolean  @default(false)
+  // Practices only: optional phone, and whether they agreed to calls and texts.
+  phone          String?
+  contactConsent Boolean @default(false)
+  // Which ad or post brought them (practices and clinicians only, never patients).
+  utmSource     String?
+  utmCampaign   String?
+  utmContent    String?
   createdAt     DateTime @default(now())
 
   @@unique([email, role, state])

@@ -5,8 +5,12 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Waitlist · FindYourDoc" };
 
-export default async function Waitlist({ searchParams }: { searchParams: Promise<{ as?: string }> }) {
-  const { as } = await searchParams;
+export default async function Waitlist({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const one = (k: string) => (typeof params[k] === "string" ? (params[k] as string) : "");
+  const as = one("as");
+  // Ad tags from the link (for example a Meta lead form thank-you screen). Never kept for patients.
+  const tags = { utm_source: one("utm_source"), utm_campaign: one("utm_campaign"), utm_content: one("utm_content") };
   return (
     <div className="max-w-xl flex flex-col gap-5">
       <div>
@@ -16,7 +20,7 @@ export default async function Waitlist({ searchParams }: { searchParams: Promise
           Tell us where you are. The states with the most patients, clinicians and practices waiting open next.
         </p>
       </div>
-      <WaitlistForm initialRole={(as ?? "").toUpperCase()} depositsLive={depositLink(process.env) !== null} />
+      <WaitlistForm initialRole={as.toUpperCase()} depositsLive={depositLink(process.env) !== null} tags={tags} />
     </div>
   );
 }
