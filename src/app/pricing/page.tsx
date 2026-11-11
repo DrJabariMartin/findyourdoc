@@ -28,6 +28,16 @@ const objections = [
   ["What does the clinician actually get paid?", "Every listing shows what you pay, what the clinician takes home and our fee. Locums keep 100% of their rate; our 12% is added on top."],
 ];
 
+// How our fees compare with the usual way of buying each service. Ranges are
+// typical published industry figures, not any one company's prices.
+const comparison: [string, string, string][] = [
+  ["Permanent physician hire", "Recruiter: 20-30% of first-year salary, often $72,000 to $168,000", `${dollars(PERMANENT_HIRE_FEE_CENTS)} flat, only when the clinician signs`],
+  ["Locums", "Agency markup of 20-40% on the clinician's rate, often not shown to either side", "12% on top, shown on every listing. The clinician keeps 100% of their rate"],
+  ["Converting a locum to permanent", "Buyout clauses and non-competes", "Published fee that falls to $0 after 12 months. No non-competes"],
+  ["New patients from a booking site", "Typical booking marketplace: charged per booking, even when the patient cancels or doesn't show", `${dollars(BOOKING_FEE_CENTS)} only after a completed new-patient visit. Never for no-shows, cancellations, existing patients, your own website or government plans`],
+  ["Reviews", "Ad-funded rating sites anyone can post on", "Only patients whose visit was booked here and completed. Every review shown. You can reply once"],
+];
+
 export default function Pricing() {
   return (
     <div className="flex flex-col gap-10">
@@ -64,6 +74,31 @@ export default function Pricing() {
           <li>Patient booking: {dollars(BOOKING_FEE_CENTS)} per completed new-patient visit. Nothing for no-shows, cancellations or your own website&apos;s patients.</li>
           <li>Locum to permanent: the published conversion fee falls to $0 after 12 months. No non-competes.</li>
         </ul>
+      </section>
+
+      <section className="flex flex-col gap-3" aria-labelledby="compare">
+        <h2 id="compare" className="font-display font-extrabold text-2xl">How this compares</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse min-w-[560px]">
+            <thead>
+              <tr className="text-left border-b border-line">
+                <th scope="col" className="py-2 pr-3 font-semibold">What you&apos;re buying</th>
+                <th scope="col" className="py-2 pr-3 font-semibold">The usual way</th>
+                <th scope="col" className="py-2 font-semibold">FindYourDoc</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.map(([what, usual, ours]) => (
+                <tr key={what} className="border-b border-line align-top">
+                  <th scope="row" className="py-2.5 pr-3 font-semibold text-left">{what}</th>
+                  <td className="py-2.5 pr-3 text-ink-2">{usual}</td>
+                  <td className="py-2.5 text-brand-dark font-medium">{ours}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-muted">Typical industry ranges, not the prices of any one company.</p>
       </section>
 
       <section className="flex flex-col gap-3">

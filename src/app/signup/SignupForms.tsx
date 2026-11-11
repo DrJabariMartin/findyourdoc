@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { signupClinician, signupPractice } from "../actions/auth";
+import { useActionState, useRef, useState } from "react";
+import { prefillFromNpi, signupClinician, signupPractice } from "../actions/auth";
 import Link from "next/link";
 import { PROFESSIONS, STATES } from "@/lib/labels";
 import { PLANS, dollars } from "@/lib/fees";
@@ -25,10 +25,51 @@ function Account() {
   );
 }
 
+/** NPI first: one lookup fills name, profession, specialty and license from the public registry. */
+function NpiPrefill({ formRef }: { formRef: React.RefObject<HTMLFormElement | null> }) {
+  const [npi, setNpi] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  async function fill() {
+    setBusy(true);
+    setNote(null);
+    const r = await prefillFromNpi(npi);
+    setBusy(false);
+    if (!r.ok) return setNote({ ok: false, text: r.error });
+    const f = formRef.current;
+    const set = (name: string, v: string | null) => {
+      const el = f?.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
+      if (el && v && !el.value) el.value = v;
+    };
+    const setAlways = (name: string, v: string | null) => {
+      const el = f?.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
+      if (el && v) el.value = v;
+    };
+    set("name", r.name);
+    setAlways("profession", r.profession);
+    set("specialty", r.specialty);
+    setAlways("licenseState", r.licenseState);
+    set("licenseNumber", r.licenseNumber);
+    setNote({ ok: true, text: "Filled from the national registry. Please check each field before you continue." });
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="label">NPI (optional, fills the form and speeds up verification)
+        <div className="flex gap-2">
+          <input name="npi" className="field flex-1" inputMode="numeric" pattern="\d{10}" maxLength={10} value={npi} onChange={(e) => setNpi(e.target.value.replace(/\D/g, ""))} />
+          <button type="button" className="btn-soft" disabled={busy || npi.length !== 10} onClick={fill}>{busy ? "Looking up…" : "Fill from registry"}</button>
+        </div>
+      </label>
+      {note && <p role={note.ok ? "status" : "alert"} className={`text-sm ${note.ok ? "text-muted" : "text-red-700"}`}>{note.text}</p>}
+    </div>
+  );
+}
+
 export default function SignupForms({ initial, plan }: { initial: "clinician" | "practice"; plan?: string }) {
   const [tab, setTab] = useState(initial);
   const [cState, cAction, cPending] = useActionState(signupClinician, undefined);
   const [pState, pAction, pPending] = useActionState(signupPractice, undefined);
+  const cForm = useRef<HTMLFormElement>(null);
   const tabClass = (on: boolean) =>
     `px-4 py-2.5 rounded-full border font-semibold text-sm cursor-pointer ${on ? "bg-brand text-white border-brand" : "bg-white border-field"}`;
 
@@ -40,7 +81,8 @@ export default function SignupForms({ initial, plan }: { initial: "clinician" | 
       </div>
 
       {tab === "clinician" ? (
-        <form action={cAction} className="card flex flex-col gap-4">
+        <form action={cAction} ref={cForm} className="card flex flex-col gap-4">
+          <NpiPrefill formRef={cForm} />
           <Account />
           <label className="label">Profession
             <select name="profession" className="field" required defaultValue="PHYSICIAN">
@@ -52,7 +94,6 @@ export default function SignupForms({ initial, plan }: { initial: "clinician" | 
             <label className="label">License state<StateSelect name="licenseState" /></label>
             <label className="label">License number<input name="licenseNumber" className="field" required /></label>
           </div>
-          <label className="label">NPI (optional, speeds up verification)<input name="npi" className="field" inputMode="numeric" pattern="\d{10}" /></label>
           <p className="text-sm text-muted">Practices never see your Lounge posts. Anonymous posts show only your role and region.</p>
           {cState?.error && <p role="alert" className="text-sm text-red-700">{cState.error}</p>}
           <button className="btn" disabled={cPending}>{cPending ? "Creating account…" : "Create account and start verification"}</button>

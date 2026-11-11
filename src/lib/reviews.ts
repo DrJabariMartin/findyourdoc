@@ -55,3 +55,9 @@ export function insuranceChanged(before: string | null, after: string | null): b
   const norm = (s: string | null) => (s ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean).sort().join(",");
   return norm(before) !== norm(after);
 }
+
+/** The newest date we confirmed this clinician: admin verification or a clean registry re-check. */
+export function lastVerified(verifiedAt: Date | null, matchChecks: { createdAt: Date }[]): Date | null {
+  const dates = [verifiedAt, ...matchChecks.map((c) => c.createdAt)].filter((d): d is Date => d instanceof Date);
+  return dates.length ? new Date(Math.max(...dates.map((d) => d.getTime()))) : null;
+}

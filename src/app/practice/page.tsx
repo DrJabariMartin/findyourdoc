@@ -4,6 +4,7 @@ import { requirePractice } from "@/lib/session";
 import { listingMoney } from "@/lib/fees";
 import { JOB_TYPES, PROFESSIONS } from "@/lib/labels";
 import { advance } from "../actions/jobs";
+import { medianResponseHours, responseLabel } from "@/lib/hiring";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function PracticeDash() {
     orderBy: { createdAt: "desc" },
   });
   const applicants = jobs.reduce((n, j) => n + j.applications.length, 0);
+  const response = responseLabel(medianResponseHours(jobs.flatMap((j) => j.applications)));
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap justify-between items-end gap-3">
@@ -29,7 +31,7 @@ export default async function PracticeDash() {
       </div>
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="card"><div className="text-sm text-muted">Open roles</div><div className="font-display font-extrabold text-3xl">{jobs.filter((j) => j.status === "OPEN").length}</div></div>
-        <div className="card"><div className="text-sm text-muted">Verified applicants</div><div className="font-display font-extrabold text-3xl">{applicants}</div></div>
+        <div className="card"><div className="text-sm text-muted">Verified applicants</div><div className="font-display font-extrabold text-3xl">{applicants}</div><div className="text-xs text-muted mt-1">Clinicians see: {response}</div></div>
         <div className="card bg-ink! text-white"><div className="text-sm text-[#C9D6E0]">Your prices</div><div className="text-sm mt-1">$9,500 flat per permanent hire · 12% on top for locums · locum-to-permanent fee falls to $0 after 12 months. No non-competes.</div></div>
       </div>
       {jobs.length === 0 && <p className="text-muted">No roles yet. Post your first one.</p>}
@@ -48,8 +50,8 @@ export default async function PracticeDash() {
               return (
                 <div key={a.id} className="flex flex-wrap gap-3 items-center border-t border-line pt-3">
                   <div className="flex-1 min-w-[220px] flex flex-col">
-                    <span className="font-semibold">{a.clinician.user.name}, {a.clinician.specialty}</span>
-                    <span className="text-sm text-muted">{a.clinician.licenseState} license verified · {ready} of {a.clinician.credentials.length} credentials ready</span>
+                    <Link href={`/applications/${a.id}`} className="font-semibold underline">{a.clinician.user.name}, {a.clinician.specialty}</Link>
+                    <span className="text-sm text-muted">{a.clinician.licenseState} license verified · {ready} of {a.clinician.credentials.length} credentials ready{a.shareDocs ? " · documents shared for credentialing" : ""}</span>
                   </div>
                   <span className="pill">{STAGE[a.stage]}</span>
                   {VERB[a.stage] && (

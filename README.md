@@ -75,6 +75,7 @@ Routine work runs by itself and every step is logged on the admin page (`/admin`
 | Credential expiry reminders at 60, 30 and 7 days, then marked expired | Hourly | `credential-reminders` |
 | Job alerts to verified clinicians whose profession and license state fit (no pay comparisons) | When a job is posted | `onJobPosted` |
 | Patient booking confirmation and clinician notice, then one reminder in the 24 hours before the visit | At booking, hourly | `bookSlot`, `appointment-reminders` (`src/lib/reminders.ts`) |
+| Tell patients who opted in when an earlier time opens with the same clinician (time and private link only) | Hourly | `earlier-times` |
 | Nudge clinicians to record past visits (so fees are right and no-shows are never charged) | Daily | `record-visit-nudges` |
 | Daily digest to admins of everything that needs a person | Daily | `admin-digest` |
 | Email delivery with retry, once per message; emails held or failed at booking or password reset are retried here | Hourly | `deliver-outbox` |

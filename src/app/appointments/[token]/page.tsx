@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { fmtSlot } from "@/lib/time";
 import { PROFESSIONS } from "@/lib/labels";
 import { canReview } from "@/lib/reviews";
-import { cancelByPatient } from "../../actions/booking";
+import { cancelByPatient, setEarlierAlert } from "../../actions/booking";
 import { deleteReview } from "../../actions/reviews";
 import { Reschedule, ReviewForm } from "./Forms";
 
@@ -41,6 +41,13 @@ export default async function Appointment({ params }: { params: Promise<{ token:
       {a.status === "BOOKED" && (
         <div className="flex flex-col gap-3">
           <Reschedule token={token} slots={others.map((s) => ({ id: s.id, label: fmtSlot(s.startsAt, c.officeState, "long") }))} />
+          <form action={setEarlierAlert} className="card flex flex-col gap-2">
+            <input type="hidden" name="token" value={token} />
+            <input type="hidden" name="on" value={a.earlierAlert ? "0" : "1"} />
+            <span className="font-semibold">{a.earlierAlert ? "We'll email you if an earlier time opens" : "Want to be seen sooner?"}</span>
+            <span className="text-sm text-muted">{a.earlierAlert ? "You'll get one email per earlier opening with this clinician. Your current time stays booked." : "Get an email when an earlier time opens with this clinician. Your current time stays booked."}</span>
+            <button className="btn-soft self-start">{a.earlierAlert ? "Stop earlier-time emails" : "Email me about earlier times"}</button>
+          </form>
           <form action={cancelByPatient}>
             <input type="hidden" name="token" value={token} />
             <button className="btn-soft">Cancel this appointment</button>

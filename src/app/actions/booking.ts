@@ -127,6 +127,14 @@ export async function rescheduleByPatient(_: BookState, form: FormData): Promise
   return {};
 }
 
+/** The patient turns earlier-time alerts on or off from their private link. */
+export async function setEarlierAlert(form: FormData) {
+  const token = String(form.get("token"));
+  const on = form.get("on") === "1";
+  await db.appointment.updateMany({ where: { accessToken: token, status: "BOOKED" }, data: { earlierAlert: on } });
+  revalidatePath(`/appointments/${token}`);
+}
+
 const profileSchema = z.object({
   bookable: z.enum(["on", "off"]).default("off"),
   bio: z.string().trim().max(600).optional(),

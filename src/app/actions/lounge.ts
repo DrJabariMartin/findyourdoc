@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { requireVerifiedClinician } from "@/lib/session";
 import { findIdentifiers } from "@/lib/identifiers";
 import { anonLabel } from "@/lib/labels";
+import { safely } from "@/lib/automation/jobs";
+import { notifyPostAuthor } from "@/lib/lounge";
 
 export type PostState = { error?: string; held?: string[]; ok?: boolean } | undefined;
 
@@ -62,9 +64,11 @@ export async function createReply(_: PostState, form: FormData): Promise<PostSta
   const found = findIdentifiers(d.body);
   const c = user.clinician;
   const handleId = d.anonymous === "on" ? await handleFor(user.id, anonLabel(c.specialty, c.profession, c.licenseState)) : null;
-  await db.reply.create({
+  const reply = await db.reply.create({
     data: { postId: d.postId, body: d.body, flagged: found.length > 0, ...(handleId ? { handleId } : { authorId: user.id }) },
   });
+  if (!reply.flagged) await safely(notifyPostAuthor(reply.id));
   revalidatePath("/lounge");
   return found.length ? { held: found } : { ok: true };
 }
+

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { fmtSlot } from "@/lib/time";
 import { PROFESSIONS } from "@/lib/labels";
 import { dollars } from "@/lib/fees";
-import { insuranceStatus, summarize } from "@/lib/reviews";
+import { insuranceStatus, lastVerified, summarize } from "@/lib/reviews";
 import { appUrl } from "@/lib/email";
 import BookForm from "./BookForm";
 
@@ -17,6 +17,7 @@ export default async function Clinician({ params, searchParams }: { params: Prom
     include: {
       user: { select: { name: true } },
       slots: { where: { status: "OPEN", startsAt: { gt: new Date() } }, orderBy: { startsAt: "asc" }, take: 40 },
+      checks: { where: { result: "MATCH" }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
       reviews: { where: { status: { in: ["SHOWN", "REPORTED"] } }, orderBy: { createdAt: "desc" } },
     },
   });
@@ -24,6 +25,7 @@ export default async function Clinician({ params, searchParams }: { params: Prom
   // Reported reviews stay visible until an admin decides; nothing is hidden for being negative.
   const rating = summarize(p.reviews.map((r) => r.rating));
   const ins = insuranceStatus(p.insuranceConfirmedAt);
+  const checked = lastVerified(p.verifiedAt, p.checks);
   // Structured data so search engines and AI assistants read the profile
   // correctly. It carries only what is already public on this page.
   const jsonLd = {
@@ -47,6 +49,7 @@ export default async function Clinician({ params, searchParams }: { params: Prom
         <h1 className="font-display font-extrabold text-2xl">{p.user.name}</h1>
         <span className="text-muted">{PROFESSIONS[p.profession]} · {p.specialty}</span>
         <span className="font-semibold text-brand text-sm">ID, license and board verified</span>
+        {checked && <span className="text-xs text-muted">Last checked {checked.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}. We re-check every license every 90 days.</span>}
         {rating.count > 0 ? (
           <a href="#reviews" className="text-sm"><strong>{rating.average} of 5</strong> from {rating.count} verified patient{rating.count > 1 ? "s" : ""}</a>
         ) : <span className="text-sm text-muted">No reviews yet</span>}

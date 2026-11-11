@@ -202,8 +202,28 @@ model Application {
   stage       String           @default("NEW") // NEW | INTERVIEW | OFFER | HIRED | DECLINED
   note        String?
   createdAt   DateTime         @default(now())
+  // Credential passport: the clinician agreed to let this practice open their
+  // verified credential documents. They can withdraw it at any time.
+  shareDocs   Boolean          @default(false)
+  // First time the practice acted (moved the stage or sent a message). Feeds
+  // the response time shown on the practice's listings.
+  firstResponseAt DateTime?
+  messages    ApplicationMessage[]
 
   @@unique([jobId, clinicianId])
+}
+
+// Messages between a practice and one applicant. Emails say only that a new
+// message is waiting; the words stay on FindYourDoc.
+model ApplicationMessage {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromPractice  Boolean
+  body          String
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, createdAt])
 }
 
 // Patient booking. Ranking is by fit and soonest availability only. Nothing a
@@ -238,6 +258,7 @@ model Appointment {
   status       String           @default("BOOKED") // BOOKED | CANCELLED | COMPLETED | NO_SHOW
   accessToken  String           @unique // lets the patient view or cancel without an account
   feeCents     Int              @default(0) // set when the visit is completed
+  earlierAlert Boolean          @default(false) // patient asked to hear about an earlier time
   reminderSentAt DateTime?
   createdAt    DateTime         @default(now())
   review       Review?

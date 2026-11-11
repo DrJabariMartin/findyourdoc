@@ -34,3 +34,30 @@ every profession, verified, anonymous through the handle vault, conversations
 never sold. The Lounge had posts but no replies; this PR adds replies with the
 same identifier check and anonymity. Still to build: reply notifications and
 search.
+
+## Second round (same PR)
+
+- Credential passport: with the clinician's consent (on by default, can be
+  turned off any time), a practice the clinician applied to can open their
+  verified documents for its own credentialing.
+- Practice-applicant messaging on each application, with email alerts that
+  carry a link only.
+- Practice response time on every listing ("Usually responds within a day"),
+  where unanswered applications count against the practice.
+- Sign-up fills name, profession, specialty and license from the NPI registry.
+- Patients can ask to hear about an earlier time with the same clinician.
+- Lounge: email to the post's author on a new reply (anonymous authors are
+  reached through the handle vault, server-side), and search across rooms.
+- Profiles show the date we last checked the license.
+- `GET /api/availability`: public JSON feed of bookable clinicians and their
+  next open times, for search engines, AI assistants, plans and practice sites.
+- Pricing page compares each fee with the usual way of buying the service.
+
+## Vendor decisions
+
+- Text messages: AWS End User Messaging SMS, under the same AWS BAA. About
+  $46-58 one-time for 10DLC registration, then roughly $5-15 a month at pilot
+  volume. Email stays the only channel until registration is approved.
+- Calendar sync: built in-house against Google Calendar and Microsoft 365,
+  reading busy times only. No vendor cost.
+- EHR sync: no vendor until about 10 practices ask for it.

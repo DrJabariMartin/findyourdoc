@@ -8,6 +8,7 @@ import { startSession, endSession } from "@/lib/session";
 import { lookupNpi } from "@/lib/npi";
 import { anonLabel, PROFESSIONS, STATES } from "@/lib/labels";
 import { onClinicianSignup, safely } from "@/lib/automation/jobs";
+import { guessProfession } from "@/lib/automation/rules";
 import { hit } from "@/lib/ratelimit";
 import { clientIp } from "@/lib/client-ip";
 import { appUrl, passwordReset, send } from "@/lib/email";
@@ -39,6 +40,30 @@ const practiceSchema = z.object({
   state: z.enum(STATES as [string, ...string[]]),
   plan: z.enum(["SOLO", "GROUP", "CONCIERGE"]).default("SOLO"),
 });
+
+export type NpiPrefill =
+  | { ok: true; name: string; profession: string | null; specialty: string | null; licenseState: string | null; licenseNumber: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Sign-up helper: reads the public NPPES record so the clinician doesn't type
+ * it. Public registry data only, and the admin still verifies the license.
+ */
+export async function prefillFromNpi(npi: string): Promise<NpiPrefill> {
+  if (!hit("npi", await clientIp())) return { ok: false, error: "Too many lookups. Please fill the form by hand." };
+  const n = String(npi).trim();
+  if (!/^\d{10}$/.test(n)) return { ok: false, error: "An NPI is 10 digits." };
+  const r = await lookupNpi(n);
+  if (!r) return { ok: false, error: "We couldn't find that NPI in the national registry. Check it, or fill the form by hand." };
+  return {
+    ok: true,
+    name: r.name,
+    profession: guessProfession(r.credential, r.taxonomy),
+    specialty: r.taxonomy,
+    licenseState: r.state && (STATES as readonly string[]).includes(r.state) ? r.state : null,
+    licenseNumber: r.licenseNumber,
+  };
+}
 
 async function emailTaken(email: string) {
   return (await db.user.findUnique({ where: { email } })) !== null;

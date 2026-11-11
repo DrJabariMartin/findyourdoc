@@ -4,17 +4,22 @@ import { requireVerifiedClinician } from "@/lib/session";
 import { anonLabel } from "@/lib/labels";
 import Composer, { ReplyBox } from "./Composer";
 
-export default async function Lounge({ searchParams }: { searchParams: Promise<{ room?: string }> }) {
+export default async function Lounge({ searchParams }: { searchParams: Promise<{ room?: string; q?: string }> }) {
   const user = await requireVerifiedClinician();
-  const { room: slug } = await searchParams;
+  const { room: slug, q: rawQ } = await searchParams;
+  const q = (rawQ ?? "").trim().slice(0, 100);
   const rooms = await db.room.findMany({ orderBy: { sortOrder: "asc" } });
   const room = rooms.find((r) => r.slug === slug) ?? rooms[0];
   if (!room) return <p>No rooms yet. Run the seed script.</p>;
   const posts = await db.post.findMany({
-    where: { roomId: room.id, flagged: false },
+    // A search looks across every room; otherwise show this room.
+    where: q
+      ? { flagged: false, OR: [{ title: { contains: q } }, { body: { contains: q } }, { replies: { some: { flagged: false, body: { contains: q } } } }] }
+      : { roomId: room.id, flagged: false },
     include: {
       author: { include: { clinician: true } },
       handle: true,
+      room: { select: { name: true } },
       replies: { where: { flagged: false }, include: { author: true, handle: true }, orderBy: { createdAt: "asc" } },
     },
     orderBy: { createdAt: "desc" },
@@ -39,9 +44,19 @@ export default async function Lounge({ searchParams }: { searchParams: Promise<{
         <p className="bg-brand-soft rounded-xl p-3.5 text-sm text-brand-dark">Only verified, licensed members can see the Lounge. Practices and recruiters never can. Assume anything you post could be screenshotted.</p>
       </aside>
       <section className="flex-[999_1_560px] min-w-0 flex flex-col gap-4">
-        <h1 className="h1">{room.name}</h1>
-        <Composer roomId={room.id} anonAs={anonLabel(c.specialty, c.profession, c.licenseState)} namedAs={user.name} />
-        {posts.length === 0 && <p className="text-muted">No posts yet. Start the first discussion.</p>}
+        <form action="/lounge" role="search" className="flex gap-2">
+          <label className="sr-only" htmlFor="lounge-q">Search the Lounge</label>
+          <input id="lounge-q" name="q" defaultValue={q} className="field flex-1" placeholder="Search every room" maxLength={100} />
+          <button className="btn-soft">Search</button>
+        </form>
+        {q ? (
+          <div className="flex items-baseline justify-between gap-3">
+            <h1 className="h1">Results for &ldquo;{q}&rdquo;</h1>
+            <Link href={`/lounge?room=${room.slug}`} className="text-sm underline">Clear search</Link>
+          </div>
+        ) : <h1 className="h1">{room.name}</h1>}
+        {!q && <Composer roomId={room.id} anonAs={anonLabel(c.specialty, c.profession, c.licenseState)} namedAs={user.name} />}
+        {posts.length === 0 && <p className="text-muted">{q ? "No discussions match that search." : "No posts yet. Start the first discussion."}</p>}
         {posts.map((p) => {
           const author = p.handle ? p.handle.label : p.author?.name ?? "Member";
           return (
@@ -50,7 +65,7 @@ export default async function Lounge({ searchParams }: { searchParams: Promise<{
                 <span className="w-9 h-9 rounded-full bg-[#DCE8F0] flex items-center justify-center font-bold text-sm">{author.slice(0, 2).toUpperCase()}</span>
                 <div className="flex flex-col">
                   <span className="font-semibold">{author}</span>
-                  <span className="text-sm text-muted">{p.handle ? "Anonymous, verified" : "Named, verified"} · {p.createdAt.toLocaleDateString("en-US")}</span>
+                  <span className="text-sm text-muted">{p.handle ? "Anonymous, verified" : "Named, verified"} · {p.createdAt.toLocaleDateString("en-US")}{q && ` · ${p.room.name}`}</span>
                 </div>
               </div>
               <h2 className="font-semibold text-lg">{p.title}</h2>
