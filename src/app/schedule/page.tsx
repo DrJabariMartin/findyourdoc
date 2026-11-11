@@ -63,7 +63,7 @@ export default async function Schedule() {
                 <label className="label">Button for your website (paste into your page&apos;s HTML)
                   <textarea readOnly rows={3} className="field font-mono text-xs" value={`<a href="${appUrl(`/b/${c.bookingCode}`)}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#0B6E69;color:#fff;font-weight:600;text-decoration:none">Book online</a>`} />
                 </label>
-                <form action={makeBookingLink}><button className="btn-soft text-sm">Make a new link (the old one stops working)</button></form>
+                <div className="flex flex-wrap gap-2"><a href="/schedule/qr" className="btn !py-2 !px-3 text-sm">Print a QR code</a><form action={makeBookingLink}><button className="btn-soft text-sm">Make a new link (the old one stops working)</button></form></div>
               </>
             ) : (
               <form action={makeBookingLink}><button className="btn !py-2 !px-3 text-sm">Create my booking link</button></form>

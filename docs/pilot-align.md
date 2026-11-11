@@ -31,3 +31,13 @@ Pathway 1 (the Columbia orthopedic clinic, opening 2027-01-01) is marketed throu
 4. **Make a new link** replaces the code; the old link stops working.
 
 Add `?utm_source=` tags only on the practice's own pages if wanted. FindYourDoc itself never puts ad pixels or tracking on patient pages.
+
+## One-command setup
+
+After Jabari signs up as a clinician, is verified, and has his Maryland license on file (admin page):
+
+```
+npm run pilot:setup -- <his sign-up email>
+```
+
+This reads `config/pilot/align.json` (office, self-pay price, bio, fee waiver, owner disclosure), makes the profile bookable, creates Align's own booking link and prints it. Running it again keeps the same link. Then open times on **Patient booking** and print the front-desk card from **Print a QR code** (`/schedule/qr`).

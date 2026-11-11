@@ -1,0 +1,13 @@
+{
+  "_note": "Align Orthopedic & Wellness, the founder's practice and the free launch pilot. Working assumptions marked in docs/pilot-align.md; correct them here, then run npm run pilot:setup.",
+  "officeName": "Align Orthopedic & Wellness",
+  "officeAddress": "10805 Hickory Ridge Rd, Suite 200",
+  "officeCity": "Columbia",
+  "officeState": "MD",
+  "insurance": null,
+  "selfPayDollars": 250,
+  "visitMinutes": 30,
+  "bio": "Orthopedic care for joints, bones, muscles and sports injuries: knees, shoulders, hips, back, hands and feet. Video visits now for patients located in Maryland. Our Columbia clinic opens January 1, 2027.\n\nFirst visits cover your history, an exam (in person) or a guided movement check (by video), and a written plan you leave with: next steps, imaging if needed, and when to follow up.",
+  "feeWaiver": "Founder's practice, free launch pilot",
+  "ownerDisclosure": "FindYourDoc's founder owns this practice."
+}
