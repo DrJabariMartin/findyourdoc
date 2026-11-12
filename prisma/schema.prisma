@@ -55,13 +55,41 @@ model ClinicianProfile {
   selfPayCents   Int?
   visitMinutes   Int      @default(30)
   slots          AvailabilitySlot[]
+
+  // Extra state licenses an admin checked against that state's board. The
+  // signup license (licenseState) counts once the profile is VERIFIED.
+  licenses       StateLicense[]
+  // Set by an admin only. A reason here waives every booking fee for this
+  // clinician (for example the founder's own pilot practice). Ranking ignores it.
+  feeWaiver      String?
+  // Set by an admin only. Shown to patients on the profile, for example when
+  // FindYourDoc's founder owns the practice.
+  ownerDisclosure String?
+  // Secret part of the practice's own booking link (/b/<code>). Bookings that
+  // arrive through it are the practice's own patients: never a booking fee.
+  bookingCode    String?  @unique
+}
+
+// A license in one more state, added by an admin after checking the state
+// board's own lookup. Video visits are offered only to patients located in a
+// state where the clinician holds a verified, unexpired license.
+model StateLicense {
+  id          String           @id @default(cuid())
+  clinicianId String
+  clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  state       String
+  number      String
+  expiresAt   DateTime?
+  verifiedAt  DateTime         @default(now())
+
+  @@unique([clinicianId, state])
 }
 
 model Credential {
   id          String           @id @default(cuid())
   clinicianId String
   clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
-  kind        String           // LICENSE | DEA | BOARD | MALPRACTICE | EDUCATION | ID | CASE_LOGS
+  kind        String           // LICENSE | DEA | CDS | BOARD | MALPRACTICE | EDUCATION | ID | CASE_LOGS
   status      String           @default("PENDING") // PENDING | VERIFIED | NEEDED | EXPIRED
   expiresAt   DateTime?
   checkedAt   DateTime?
@@ -189,6 +217,7 @@ model AvailabilitySlot {
   clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
   startsAt    DateTime
   minutes     Int
+  mode        String           @default("IN_PERSON") // IN_PERSON | VIDEO
   status      String           @default("OPEN") // OPEN | BOOKED | REMOVED
   appointment Appointment?
 
@@ -210,6 +239,10 @@ model Appointment {
   newPatient   Boolean          @default(true)
   governmentPlan Boolean        @default(false) // Medicare, Medicaid, TRICARE, VA etc.: never charged a booking fee
   source       String           @default("FINDYOURDOC") // FINDYOURDOC | PRACTICE_SITE
+  // Video visits: the state the patient says they will be in during the visit
+  // (licensure follows the patient), and their telehealth consent.
+  patientState      String?
+  telehealthConsent Boolean     @default(false)
   status       String           @default("BOOKED") // BOOKED | CANCELLED | COMPLETED | NO_SHOW
   accessToken  String           @unique // lets the patient view or cancel without an account
   feeCents     Int              @default(0) // set when the visit is completed

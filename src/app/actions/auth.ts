@@ -75,6 +75,8 @@ export async function signupClinician(_: FormState, form: FormData): Promise<For
               { kind: "BOARD", status: "NEEDED" },
               { kind: "EDUCATION", status: "NEEDED" },
               { kind: "MALPRACTICE", status: "NEEDED" },
+              // Prescribers: DEA plus the state's controlled substance registration (Maryland CDS, for example).
+              ...(["PHYSICIAN", "NP", "PA"].includes(d.profession) ? [{ kind: "DEA", status: "NEEDED" }, { kind: "CDS", status: "NEEDED" }] : []),
             ],
           },
         },

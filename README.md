@@ -42,6 +42,7 @@ Every pull request runs lint, type checks, tests and a build in GitHub Actions (
 | `EMAIL_TRANSPORT` | `log` prints emails to the server log (development). `hold` keeps them queued (production default). `ses` sends through Amazon SES; see [docs/launch.md](docs/launch.md). |
 | `AUTOMATION_SECRET` | Protects `/api/automations`. At least 24 random characters. |
 | `EMAIL_FROM` | Sender address for outgoing email. |
+| `LAUNCH_STATES` | States where patients can book, comma separated. Default `MD,DC,VA` (the DMV launch market). Other states go to the waitlist. |
 
 ## How the rules are enforced in code
 
@@ -51,6 +52,9 @@ Every pull request runs lint, type checks, tests and a build in GitHub Actions (
 | Permanent hire is $9,500 flat; locum-to-permanent fee falls to $0 over 12 months (no non-competes) | `src/lib/fees.ts` |
 | Booking fee is a flat $40, only for a completed visit by a new patient who found the clinician here; never for no-shows, cancellations, existing patients, the practice's own website, or patients on Medicare, Medicaid, TRICARE or VA (anti-kickback safeguard) | `src/lib/fees.ts`, `recordVisit` in `src/app/actions/booking.ts` |
 | Search ranking uses availability only | `src/app/find/page.tsx` |
+| Licensure follows the patient: video visits only for patients located in a state where the clinician holds a verified, unexpired license, inside the launch market; in-person only at a licensed office | `src/lib/market.ts`, `bookSlot` in `src/app/actions/booking.ts` |
+| Video bookings record the patient's state and telehealth consent (Maryland Health Occupations 1-1002, COMAR 10.32.05) | `src/app/find/[id]/BookForm.tsx` |
+| An admin-set fee waiver (for example the founder's own pilot practice) makes every booking fee $0, and an ownership disclosure shows on the profile; neither changes ranking | `src/lib/fees.ts`, `setPilotTerms` in `src/app/actions/admin.ts` |
 | Only verified clinicians can enter the Lounge, apply to jobs or take bookings | `src/lib/session.ts` |
 | Anonymous posts reference a handle; the user-to-handle link lives only in `HandleVault` | `prisma/schema.prisma`, `src/app/actions/lounge.ts` |
 | Posts that look like they contain patient identifiers are held for a moderator | `src/lib/identifiers.ts` |
@@ -87,7 +91,7 @@ The rules live in `src/lib/automation/rules.ts` (tested in `tests/automation.tes
 
 ## Before real patients or clinicians use it
 
-This is a first version. The chosen launch setup, costs and steps are in [docs/launch.md](docs/launch.md). Before launch:
+This is a first version. The chosen launch setup, costs and steps are in [docs/launch.md](docs/launch.md). The first pilot (Align Orthopedic & Wellness, Columbia, MD) is set up as in [docs/pilot-align.md](docs/pilot-align.md). Before launch:
 
 - **Hosting:** HIPAA-eligible hosting and database with a signed business associate agreement. Appointment records contain protected health information. Switch Prisma's provider to `postgresql`.
 - **Separate the handle vault** into its own database with its own credentials.

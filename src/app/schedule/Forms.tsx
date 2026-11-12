@@ -41,6 +41,12 @@ export function SlotsForm() {
       <label className="label">Date<input type="date" name="date" className="field" required /></label>
       <label className="label">From<input type="time" name="start" defaultValue="09:00" className="field" required /></label>
       <label className="label">To<input type="time" name="end" defaultValue="12:00" className="field" required /></label>
+      <label className="label">Visit type
+        <select name="mode" defaultValue="IN_PERSON" className="field">
+          <option value="IN_PERSON">In person</option>
+          <option value="VIDEO">Video</option>
+        </select>
+      </label>
       <button className="btn" disabled={pending}>{pending ? "Adding…" : "Open these times"}</button>
       {state?.error && <p role="alert" className="text-sm text-red-700 w-full">{state.error}</p>}
     </form>

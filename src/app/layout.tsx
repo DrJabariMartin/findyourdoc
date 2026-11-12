@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${inter.variable} ${manrope.variable}`}>
       <body className="min-h-screen font-sans">
-        <header className="bg-white border-b border-line">
+        <header className="bg-white border-b border-line print:hidden">
           <nav aria-label="Main" className="max-w-6xl mx-auto px-6 py-4 flex flex-wrap items-center gap-x-8 gap-y-3">
             <Logo />
             <div className="flex flex-wrap gap-x-6 gap-y-2 flex-1 font-medium text-[15px]">
