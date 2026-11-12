@@ -13,6 +13,7 @@ import { newBookingCode } from "../src/lib/booking-link";
 import { licensedStates } from "../src/lib/market";
 
 type Config = {
+  npi?: string; // the clinician's individual NPI; checked against the account
   officeName: string; officeAddress: string; officeCity: string; officeState: string;
   insurance: string | null; selfPayDollars: number | null; visitMinutes: number; bio: string;
   feeWaiver?: string; ownerDisclosure?: string;
@@ -32,6 +33,7 @@ try {
   const c = user?.clinician;
   if (!c) throw new Error(`No clinician account for ${email}. Sign up first at /signup.`);
   if (c.status !== "VERIFIED") throw new Error("This clinician isn't verified yet. Approve them on /admin first.");
+  if (cfg.npi && c.npi !== cfg.npi) throw new Error(`This account's NPI (${c.npi ?? "none"}) doesn't match the config (${cfg.npi}). Check the email or the config.`);
   if (!licensedStates(c).includes(cfg.officeState)) throw new Error(`No verified ${cfg.officeState} license on file. Add it on /admin first.`);
   const updated = await db.clinicianProfile.update({
     where: { id: c.id },

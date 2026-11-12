@@ -13,9 +13,28 @@ Real patients book only after: the AWS account and AWS BAA are in place, FindYou
 - **Free pilot:** in the same admin section, set the fee waiver to `Founder pilot, no charge`. Every booking fee is then recorded as $0.
 - **Disclosure:** set the disclosure to `FindYourDoc's founder, Dr. Jabari Martin, owns this practice.` It shows on the profile and in search. Ranking stays availability-only.
 
+## Public credentials on file (from Dr. Martin's records, checked Nov 12, 2026)
+
+Only public, profile-level facts live here. SSN, date of birth, DEA, CDS, tax ID, Medicare/Medicaid IDs, logins and malpractice history stay in his own files and are never copied into the app, the repo or docs.
+
+| Item | Value | Status |
+|---|---|---|
+| Individual NPI | 1760703557 | Active in NPPES, Orthopaedic Surgery (207X00000X). NPPES still lists the old Greenbelt address and a Tacoma, WA location; update requested Nov 12. |
+| Align group NPI | 1750209896, Align Orthopedic & Wellness LLC | Active since Jul 7, 2026. NPPES still lists 1717 N St NW, Washington DC; update to Columbia requested Nov 12. |
+| Older group NPI | 1730849613, Martin Orthopaedic & Wellness Group (Greenbelt) | Not Align. Don't use for the pilot. |
+| Maryland license | D0092720, Physician and Surgeon | The only card on file shows expiry 9/30/2025. Maryland is his Compact home state and the Board is processing an IMLC letter (Nov 4), which needs an active license, so it was most likely renewed. Admin must confirm the current expiry on the Board's lookup before approving. |
+| DC license | none found | Not licensed in DC yet. DC patients can't book until one is verified. |
+| Virginia license | none found | Not licensed in Virginia yet. Same rule. |
+| Board certification | American Board of Orthopaedic Surgery | Certified Jul 25, 2019, current through Dec 31, 2029; current ABOS letter received Nov 2, 2026. |
+| Other licenses (outside launch market) | DE, NJ, PA, WA | Not used by the pilot. |
+| Insurance | Credentialing in progress | Cigna contract signed Nov 8 (effective date pending); Aetna agreement signed; Medicare, CareFirst, UnitedHealthcare, Anthem and TRICARE pending. Profile says "ask the office" until each has an effective date. |
+| Office | 10805 Hickory Ridge Rd, Suite 200, Columbia, MD 21044 · (737) 365-9355 · info@alignwell.app | |
+
+`config/pilot/align.json` carries the individual NPI, and `npm run pilot:setup` refuses to run if the account's NPI doesn't match it.
+
 ## Steps
 
-1. Dr. Martin signs up as a clinician (NPI, Maryland license) and uploads ID, license, board certification, DEA, Maryland CDS registration and malpractice.
+1. Dr. Martin signs up as a clinician (NPI 1760703557, Maryland license D0092720, Orthopaedic Surgery) and uploads ID, license, board certification, DEA, Maryland CDS registration and malpractice.
 2. Admin checks the Maryland license on the Maryland Board of Physicians lookup and NPPES, then approves.
 3. Admin adds any DC or Virginia license, the fee waiver and the disclosure.
 4. Dr. Martin fills in the booking profile on `/schedule` (office 10805 Hickory Ridge Rd, Suite 200, Columbia, MD 21044; visit length; self-pay price; insurance) and opens video slots in time blocks kept for FindYourDoc, so they can't clash with Align's own calendar.
