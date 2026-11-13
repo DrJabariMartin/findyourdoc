@@ -45,3 +45,4 @@ prisma/dev.db*
 !.env.example
 prisma/*.db*
 storage/
+test-results/
