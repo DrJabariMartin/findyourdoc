@@ -90,9 +90,8 @@ The rules live in `src/lib/automation/rules.ts` (tested in `tests/automation.tes
 This is a first version. The chosen launch setup, costs and steps are in [docs/launch.md](docs/launch.md). Before launch:
 
 - **Hosting:** HIPAA-eligible hosting and database with a signed business associate agreement. Appointment records contain protected health information. Switch Prisma's provider to `postgresql`.
-- **Separate the handle vault** into its own database with its own credentials.
-- **Email:** turn on Amazon SES under the AWS BAA (`EMAIL_TRANSPORT="ses"`, see [docs/launch.md](docs/launch.md)). Add SMS reminders and email address verification.
+- **Email:** turn on Amazon SES under the AWS BAA (`EMAIL_TRANSPORT="ses"`, see [docs/launch.md](docs/launch.md)). Add email address verification.
 - **Document storage:** move credential documents from local disk to encrypted object storage covered by the same agreement.
-- **Automated primary-source license checks** to speed up the verification queue.
-- **Shared rate limits:** with more than one server, move the counters from memory to Redis or the database.
-- **Legal review** of pricing, terms, privacy policy and the booking consent text by healthcare counsel in DC, Maryland and Virginia (and Georgia if Atlanta opens).
+- **Legal review** of pricing, terms, privacy policy and the booking consent text by healthcare counsel, for Maryland first (the pilot is there), then DC and Virginia before each opens.
+
+Later, not needed for launch: SMS reminders, automated license checks, shared rate limits (only with more than one server), and a separate database for the handle vault.

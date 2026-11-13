@@ -32,42 +32,43 @@ Decided 2026-11-10. The primary market is the DC area: the District of Columbia,
 
 ### Company registration
 - **Incorporate in Delaware** (C-corp), as decided on 2026-11-09.
-- **Register as a foreign corporation in the jurisdiction where Jabari lives and works first.** That is where the company "does business" from day one.
-- **Add DC, Maryland or Virginia when the company gets an office, an employee, or a state license there.** A Maryland staffing license (see below) requires being registered in Maryland.
-- **Register in Georgia only when Atlanta opens.** This replaces the 2026-11-09 plan to register in Georgia at launch.
+- **Register as a foreign corporation in Maryland only.** The founder's practice and the first pilot are in Columbia, Maryland, so that is where the company does business from day one. A Maryland staffing license (see below) also requires it.
+- **Don't register in DC, Virginia or Georgia yet.** Selling to customers there over the internet doesn't require it. Add a jurisdiction only when the company gets an office, an employee or a state license there. This replaces the 2026-11-09 plan to register in Georgia at launch.
 
 ### Licensing that affects the product
 
 | | DC | Maryland | Virginia | Georgia (second) |
 | --- | --- | --- | --- | --- |
-| Physicians: Interstate Medical Licensure Compact | Member | Member | **Not confirmed. Plan on a full Virginia license.** | Member |
+| Physicians: Interstate Medical Licensure Compact | Member | Member | **Not a member.** Physicians need a full Virginia license. | Member |
 | Nurses: Nurse Licensure Compact | **Not a member.** RNs need a DC license. | Member | Member | Member |
-| PT Compact | Member, issuing and accepting privileges | Member, issuing and accepting privileges | Member (check DHP for status) | Member |
-| Temporary staffing (locums) | DC Health licenses nurse staffing agencies | MDH OHCQ licenses any "health care staff agency" that refers practitioners, as employees or contractors, for temporary work at a facility | Check for any nurse staffing agency registration | Check |
+| PT Compact | Member, issuing and accepting privileges | Member, issuing and accepting privileges | Member | Member |
+| Temporary staffing (locums) | DC Health licenses nurse staffing agencies | MDH OHCQ licenses any "health care staff agency" that refers practitioners, as employees or contractors, for temporary work at a facility | No state license for employment or nurse staffing agencies | Not checked. Check when Atlanta opens. |
 
 What this means:
 - **Compacts speed up licensing but don't replace it.** A clinician still needs a license or compact privilege in the state where the patient is. Verification keeps checking the license for the state where the clinician practices.
 - **Telehealth follows the patient.** A video visit needs a license where the patient is located. Booking is in-person only today, so nothing changes yet. A telehealth option must check the patient's state against the clinician's licenses.
-- **Locums is gated by state.** FindYourDoc refers clinicians for temporary work at practices and charges 12% on top, so Maryland's definition probably covers it, and DC's covers nurses. `LOCUMS_STATES` lists the states where locums posts are allowed. In production it starts empty, and each state is added when counsel says no license is needed or the license is granted. Permanent and per-diem posts work everywhere.
+- **Locums is gated by state.** FindYourDoc refers clinicians for temporary work at practices and charges 12% on top, so Maryland's definition probably covers it, and DC's covers nurses. `LOCUMS_STATES` lists the states where locums posts are allowed. In production it starts empty. **Virginia is the likely first state**, because it has no staffing-agency license; add it as soon as counsel confirms. Add Maryland and DC when counsel says no license is needed or the license is granted. Permanent and per-diem posts work everywhere.
 
 ### Taxes on the practice subscription
-- **Maryland** taxes SaaS at 6%, and since July 1, 2025 it also charges 3% on many data and IT services. Treat practice plans as taxable in Maryland until a CPA says otherwise.
-- **DC** taxes many digital and SaaS products. Have a CPA confirm.
-- **Virginia** doesn't generally tax SaaS.
-- Turn on Stripe Tax when Stripe is set up.
+- **Maryland: collect from the first sale**, because the company is physically there. Software subscriptions sold to businesses are taxed at 3% (the rate that started July 1, 2025); sales to individual consumers are 6%. A CPA should confirm the practice plans fall under the 3% rule.
+- **DC: nothing to collect until sales there pass $100,000 or 200 transactions in a year.** After that, SaaS is taxed at 6%.
+- **Virginia: nothing to collect.** It doesn't generally tax SaaS.
+- Turn on Stripe Tax when Stripe is set up. It tracks the DC threshold, so nobody has to.
 
 ### Government plans (booking fee is never charged)
 The fee exemption now also matches the local plan names: Maryland HealthChoice and MCHP, Virginia Cardinal Care and FAMIS, DC Healthy Families and DC Healthcare Alliance. It still matches Georgia's PeachCare.
 
-### Sources (checked 2026-11-10)
+### Sources (checked 2026-11-10, re-checked 2026-11-12)
 - PT Compact map: [DC](https://ptcompact.org/State/DC), [Maryland](https://ptcompact.org/State/MD), [Virginia DHP](https://www.dhp.virginia.gov/Boards/PhysicalTherapy/PractitionerResources/PTLicensureCompact/)
 - Nurse Licensure Compact membership: [overview](https://en.wikipedia.org/wiki/Nurse_Licensure_Compact) (DC not a member)
 - Maryland OHCQ: [Health Care Staff Agencies](https://health.maryland.gov/ohcq/Pages/Health-Care-Staff-Agencies.aspx)
 - DC Health: [nurse staffing agency regulations](https://dchealth.dc.gov/sites/default/files/dc/sites/doh/publication/attachments/Regulations%20for%20Nurse%20Staffing%20Agencies%20%2822B%20DCMR%204900%29%20%28as%20of%2004.21.23%29.pdf)
-- IMLC participating states: [imlcc.com](https://imlcc.com/faqs/). Confirm Virginia on the live map before relying on it.
-- Maryland 3% tech services tax: [Venable](https://www.venable.com/insights/publications/2025/07/salt-alert-maryland-enacts-3-sales-tax-on-tech)
+- IMLC membership: the [IMLCC FY2026 annual report](https://imlcc.com/wp-content/uploads/2026/10/IMLCC_AnnualReport_2026_webvf.pdf) lists Virginia as a non-member and counts DC as a member. Several third-party "compact map" sites wrongly list Virginia as a member.
+- Virginia staffing: [Harbor Compliance](https://www.harborcompliance.com/virginia-employment-agency-peo-talent-license) (no state license for employment or nurse staffing agencies)
+- Maryland 3% tax on business SaaS: [CohnReznick](https://www.cohnreznick.com/insights/maryland-expands-sales-and-use-tax-to-it-software-services), [Venable](https://www.venable.com/insights/publications/2025/07/salt-alert-maryland-enacts-3-sales-tax-on-tech)
+- DC SaaS tax and threshold: [Anrok](https://www.anrok.com/saas-sales-tax-by-state/district-of-columbia)
 
-Healthcare counsel should confirm the locums and staffing questions in all three jurisdictions before any locums post goes live.
+Healthcare counsel reviews Maryland first, because the pilot is there. DC and Virginia follow, and each only has to be done before that jurisdiction opens. Counsel confirms the staffing question for a state before locums posts open in it.
 
 ## Estimated monthly cost at launch (us-east-1)
 
@@ -89,7 +90,7 @@ The domain itself is extra, usually $10 to $20 a year.
 
 1. **Jabari:** Create the AWS account in the company's name, on the company card. This is spend.
 2. **Jabari:** Accept the AWS BAA in AWS Artifact. This is a legal agreement.
-3. **Jabari:** Have a trademark attorney clear the name first. "FindYourDoc" may conflict with existing "Find My Doc" filings and apps. Buy the domain, and commission a logo, only after the name is cleared. This is spend. Steps 1, 2 and 4 don't depend on the name, so they can go ahead. The SES and app setup in steps 5 to 7 waits for the domain.
+3. **Jabari:** Have a trademark attorney clear the name. "FindYourDoc" may conflict with existing "Find My Doc" filings and apps. Buy the domain, and commission a logo, only after the name is cleared. This is spend. **Only step 6 (email) and the public launch wait for this.** Steps 4, 5, 7 and 8 run on the address AWS gives the service, with `EMAIL_TRANSPORT="hold"`, so staging can be built and tested while the attorney works.
 4. **Engineering:**
    - Switch Prisma to `postgresql`.
    - Move document storage to S3.
@@ -103,17 +104,16 @@ The domain itself is extra, usually $10 to $20 a year.
    - Request SES production access. The SES sandbox only sends to verified addresses.
    - Then set `EMAIL_TRANSPORT="ses"`, `EMAIL_FROM` and `AWS_REGION`.
 7. **Engineering:** Add the repository secrets `APP_URL` and `AUTOMATION_SECRET`, and merge to `main`. The hourly workflow then starts.
-8. **Engineering:**
-   - Make a test booking to a staff address.
-   - Check that the email was sent.
-   - Check that the admin page's Automations section shows the run.
+8. **Engineering:** Make a test booking to a staff address, then check the admin page's Automations section. It shows both the run and the email.
 
-Steps 4 to 8 take about two days once steps 1 to 3 are done.
+Steps 4, 5, 7 and 8 take about two days once steps 1 and 2 are done. Step 6 takes an hour once the domain exists, plus about a day for AWS to grant production access.
 
 ## Still needed before real patients
 
-- Healthcare counsel reviews the terms, privacy policy and booking consent.
-- State-board primary-source license checks.
-- Rate limits shared through the database or Redis once there's more than one server.
+- Healthcare counsel reviews the terms, privacy policy and booking consent (Maryland first).
+- An admin checks each clinician's license on the state board's own lookup before approving them.
 - Email address verification.
-- Moving the handle vault to its own database.
+
+### Not needed for launch (removed from the list on 2026-11-12)
+- **Shared rate limits.** Only matters with more than one server. Launch runs one.
+- **A separate database for the handle vault.** The vault is already a separate table that only the server can read. Splitting it out is hardening for later, when there's a team with database access.
