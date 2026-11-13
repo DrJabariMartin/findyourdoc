@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #0B6E69;
+  --color-brand-dark: #084F4C;
+  --color-brand-soft: #E3F1EF;
+  --color-ink: #102A43;
+  --color-ink-2: #3E5468;
+  --color-muted: #4A5B6C;
+  --color-line: #DCE3E8;
+  --color-field: #B8C4CE;
+  --color-page: #F5F7F8;
+  --color-warn: #9A5B00;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-manrope), system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+}
+
+.card { @apply bg-white border border-line rounded-2xl p-5; }
+.btn { @apply inline-flex items-center justify-center bg-brand text-white font-semibold px-5 py-3 rounded-xl hover:bg-brand-dark cursor-pointer disabled:opacity-60; }
+.btn-soft { @apply inline-flex items-center justify-center bg-brand-soft text-brand-dark font-semibold px-4 py-2.5 rounded-xl cursor-pointer; }
+.field { @apply w-full border border-field rounded-xl px-3 py-3 bg-white; }
+.label { @apply flex flex-col gap-1 text-sm font-semibold; }
+.pill { @apply text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-soft text-brand-dark; }
+.h1 { @apply font-display font-extrabold text-3xl; }

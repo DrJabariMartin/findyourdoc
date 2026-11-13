@@ -1,0 +1,291 @@
+// FindYourDoc data model, version 1.
+// Local development uses SQLite. Production switches the provider to postgresql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   // CLINICIAN | PRACTICE | ADMIN
+  createdAt    DateTime @default(now())
+
+  clinician  ClinicianProfile?
+  memberships PracticeMember[]
+  namedPosts Post[]            @relation("NamedPosts")
+}
+
+// Verified professional identity. A clinician is invisible to the Lounge and
+// to practices until status is VERIFIED.
+model ClinicianProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  npi            String?   @unique
+  profession     String    // PHYSICIAN | NP | PA | NURSE | CRNA | PT | OT | PHARMACIST | OTHER
+  specialty      String
+  licenseState   String
+  licenseNumber  String
+  region         String    // shown on anonymous posts, e.g. "Southeast"
+  status         String    @default("PENDING") // PENDING | VERIFIED | REJECTED | LAPSED
+  verifiedAt     DateTime?
+  nextRecheckAt  DateTime?
+  createdAt      DateTime  @default(now())
+
+  credentials  Credential[]
+  applications Application[]
+  checks       VerificationCheck[]
+
+  // Patient booking. Off until the clinician turns it on.
+  bookable       Boolean  @default(false)
+  bio            String?
+  officeName     String?
+  officeAddress  String?
+  officeCity     String?
+  officeState    String?
+  insurance      String?  // comma-separated plans accepted
+  selfPayCents   Int?
+  visitMinutes   Int      @default(30)
+  slots          AvailabilitySlot[]
+}
+
+model Credential {
+  id          String           @id @default(cuid())
+  clinicianId String
+  clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  kind        String           // LICENSE | DEA | BOARD | MALPRACTICE | EDUCATION | ID | CASE_LOGS
+  status      String           @default("PENDING") // PENDING | VERIFIED | NEEDED | EXPIRED
+  expiresAt   DateTime?
+  checkedAt   DateTime?
+  documents   CredentialDocument[]
+}
+
+// The anonymous handle vault. The link between a user and their handle lives
+// only here. Posts reference the handle, never the user. In production this
+// table sits in a separate database with its own access key.
+model HandleVault {
+  id        String       @id @default(cuid())
+  userId    String       @unique
+  handleId  String       @unique
+  handle    AnonHandle   @relation(fields: [handleId], references: [id])
+}
+
+model AnonHandle {
+  id        String       @id @default(cuid())
+  label     String       // e.g. "Orthopedic surgeon, Southeast"
+  vault     HandleVault?
+  posts     Post[]
+}
+
+model Room {
+  id        String  @id @default(cuid())
+  slug      String  @unique
+  name      String
+  support   Boolean @default(false) // private support room
+  sortOrder Int     @default(0)
+  posts     Post[]
+}
+
+model Post {
+  id          String      @id @default(cuid())
+  roomId      String
+  room        Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  // Exactly one of these is set.
+  authorId    String?
+  author      User?       @relation("NamedPosts", fields: [authorId], references: [id])
+  handleId    String?
+  handle      AnonHandle? @relation(fields: [handleId], references: [id])
+  flagged     Boolean     @default(false) // set by the identifier check
+  createdAt   DateTime    @default(now())
+}
+
+model Practice {
+  id        String           @id @default(cuid())
+  name      String
+  city      String
+  state     String
+  plan      String           @default("SOLO") // SOLO | GROUP | CONCIERGE
+  createdAt DateTime         @default(now())
+  members   PracticeMember[]
+  jobs      Job[]
+}
+
+// Who wants FindYourDoc where we haven't opened yet. Counts by state decide
+// the next launch state. depositIntent records whether a practice says it
+// would pay a refundable deposit for a founding spot; no money is taken.
+// Never store health details here.
+model WaitlistEntry {
+  id            String   @id @default(cuid())
+  email         String
+  role          String   // PATIENT | CLINICIAN | PRACTICE
+  state         String
+  city          String?
+  depositIntent Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@unique([email, role, state])
+  @@index([state, role])
+}
+
+model PracticeMember {
+  id         String   @id @default(cuid())
+  practiceId String
+  practice   Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([practiceId, userId])
+}
+
+// Money is stored in cents. Hourly jobs use per-hour cents; permanent jobs use
+// annual cents. The fee is computed by src/lib/fees.ts and stored so the
+// listing shows exactly what the practice agreed to.
+model Job {
+  id              String        @id @default(cuid())
+  practiceId      String
+  practice        Practice      @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  type            String        // LOCUMS | PERMANENT | PER_DIEM
+  profession      String
+  title           String
+  city            String
+  state           String
+  description     String
+  payUnit         String        // HOUR | YEAR
+  payMinCents     Int
+  payMaxCents     Int
+  status          String        @default("OPEN") // OPEN | FILLED | CLOSED
+  createdAt       DateTime      @default(now())
+  applications    Application[]
+}
+
+model Application {
+  id          String           @id @default(cuid())
+  jobId       String
+  job         Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  clinicianId String
+  clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  stage       String           @default("NEW") // NEW | INTERVIEW | OFFER | HIRED | DECLINED
+  note        String?
+  createdAt   DateTime         @default(now())
+
+  @@unique([jobId, clinicianId])
+}
+
+// Patient booking. Ranking is by fit and soonest availability only. Nothing a
+// practice pays changes the order of results.
+model AvailabilitySlot {
+  id          String           @id @default(cuid())
+  clinicianId String
+  clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  startsAt    DateTime
+  minutes     Int
+  status      String           @default("OPEN") // OPEN | BOOKED | REMOVED
+  appointment Appointment?
+
+  @@index([clinicianId, startsAt])
+}
+
+// Appointment rows hold protected health information. Production hosting must
+// be HIPAA-eligible with a signed BAA, and no analytics or ad scripts may load
+// on booking pages.
+model Appointment {
+  id           String           @id @default(cuid())
+  slotId       String           @unique
+  slot         AvailabilitySlot @relation(fields: [slotId], references: [id])
+  patientName  String
+  patientEmail String
+  patientPhone String
+  insurance    String?          // plan name, or null for self-pay
+  reason       String?          // short, optional
+  newPatient   Boolean          @default(true)
+  governmentPlan Boolean        @default(false) // Medicare, Medicaid, TRICARE, VA etc.: never charged a booking fee
+  source       String           @default("FINDYOURDOC") // FINDYOURDOC | PRACTICE_SITE
+  status       String           @default("BOOKED") // BOOKED | CANCELLED | COMPLETED | NO_SHOW
+  accessToken  String           @unique // lets the patient view or cancel without an account
+  feeCents     Int              @default(0) // set when the visit is completed
+  reminderSentAt DateTime?
+  createdAt    DateTime         @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Automation. Every automated step writes what it did, so an admin can audit
+// it, and every message goes through the outbox, so nothing is sent twice.
+// ---------------------------------------------------------------------------
+
+// The result of an automated registry check. It advises the admin; it never
+// approves anyone on its own (policy: a person approves every new member).
+model VerificationCheck {
+  id          String           @id @default(cuid())
+  clinicianId String
+  clinician   ClinicianProfile @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  kind        String           // SIGNUP | RECHECK
+  source      String           // NPPES
+  result      String           // MATCH | MISMATCH | NOT_FOUND | NO_NPI | ERROR
+  issues      String           // newline-separated, empty when MATCH
+  createdAt   DateTime         @default(now())
+
+  @@index([clinicianId, createdAt])
+}
+
+// Outbox for email. dedupeKey stops the same reminder going out twice even if
+// a job runs again. Bodies never include visit reasons or insurance details.
+model Notification {
+  id        String    @id @default(cuid())
+  dedupeKey String    @unique
+  toEmail   String
+  kind      String    // WELCOME | VERIFIED | JOB_MATCH | CREDENTIAL_EXPIRING | RECHECK_LAPSED | BOOKING_CONFIRMED | APPOINTMENT_REMINDER | RECORD_VISIT | ADMIN_DIGEST
+  subject   String
+  body      String
+  status    String    @default("PENDING") // PENDING | SENT | FAILED
+  attempts  Int       @default(0)
+  sendAfter DateTime  @default(now())
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime  @default(now())
+
+  @@index([status, sendAfter])
+}
+
+model AutomationRun {
+  id         String    @id @default(cuid())
+  job        String
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  ok         Boolean   @default(false)
+  summary    String    @default("")
+
+  @@index([job, startedAt])
+}
+
+// One-time password reset links. Only a hash of the token is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Files a clinician uploads for verification. Stored outside the public
+// folder and served only to the owner and admins.
+model CredentialDocument {
+  id           String     @id @default(cuid())
+  credentialId String
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String     @unique
+  uploadedAt   DateTime   @default(now())
+}
