@@ -17,9 +17,9 @@ export default function Home() {
           license-verified and free to book. Clinicians get a private community and jobs that show the real pay.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Link href="/find" className="btn">Find care and book</Link>
-          <Link href="/signup" className="btn-soft">Join free as a clinician</Link>
-          <Link href="/signup?as=practice" className="btn-soft">I&apos;m hiring for a practice</Link>
+          <Link href="/find" className="btn">Book care</Link>
+          <Link href="/signup" className="btn-soft">Join as a clinician</Link>
+          <Link href="/signup?as=practice" className="btn-soft">I&apos;m hiring</Link>
         </div>
       </section>
       <section className="grid gap-4 sm:grid-cols-2">
@@ -32,8 +32,8 @@ export default function Home() {
       </section>
       <section className="rounded-2xl bg-ink text-white p-8 flex flex-col gap-3">
         <h2 className="font-display font-extrabold text-2xl">For practices</h2>
-        <p className="text-[#C9D6E0]">$299 a month for solo practices, $799 for groups, $1,999 if you want us to run your hiring. $9,500 flat per permanent hire. Locums at 12% on top of the clinician&apos;s rate. Never a percentage of professional fees.</p>
-        <p className="text-[#C9D6E0]">Every plan comes with a guarantee: if a permanent hire leaves within 90 days, your next permanent hire has no fee.</p>
+        <p className="text-[#C9D6E0]">$299 a month solo, $799 for groups, $1,999 if we run your hiring. $9,500 flat per permanent hire. Locums at 12% on top. Never a percentage of professional fees.</p>
+        <p className="text-[#C9D6E0]">Guaranteed: if a permanent hire leaves within 90 days, the next one has no fee.</p>
         <div className="flex flex-wrap gap-3 pt-1">
           <Link href="/pricing" className="btn">See plans and guarantees</Link>
           <Link href="/waitlist" className="btn-soft">Not in your state yet? Join the waitlist</Link>

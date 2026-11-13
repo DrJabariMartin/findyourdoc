@@ -19,14 +19,15 @@ const jobSchema = z.object({
   state: z.enum(STATES as [string, ...string[]]),
   description: z.string().trim().min(20, "Describe the role in a sentence or two").max(4000),
   payMin: z.coerce.number().positive("Enter the pay"),
-  payMax: z.coerce.number().positive("Enter the pay"),
+  // Blank means a single rate, not a range.
+  payMax: z.preprocess((v) => v || undefined, z.coerce.number().positive("Enter the pay").optional()),
 });
 
 export async function postJob(_: JobState, form: FormData): Promise<JobState> {
   const { practice } = await requirePractice();
   const parsed = jobSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const d = parsed.data;
+  const d = { ...parsed.data, payMax: parsed.data.payMax ?? parsed.data.payMin };
   if (d.payMax < d.payMin) return { error: "The top of the pay range must be at least the bottom" };
   if (d.type === "LOCUMS" && !locumsAllowed(d.state))
     return { error: "Locums isn't open in that state yet. You can post it as permanent or per diem." };

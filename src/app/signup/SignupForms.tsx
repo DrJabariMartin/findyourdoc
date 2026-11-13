@@ -29,6 +29,7 @@ export default function SignupForms({ initial, plan }: { initial: "clinician" | 
   const [tab, setTab] = useState(initial);
   const [cState, cAction, cPending] = useActionState(signupClinician, undefined);
   const [pState, pAction, pPending] = useActionState(signupPractice, undefined);
+  const chosen = PLANS.find((p) => p.id === plan) ?? PLANS[0];
   const tabClass = (on: boolean) =>
     `px-4 py-2.5 rounded-full border font-semibold text-sm cursor-pointer ${on ? "bg-brand text-white border-brand" : "bg-white border-field"}`;
 
@@ -55,7 +56,7 @@ export default function SignupForms({ initial, plan }: { initial: "clinician" | 
           <label className="label">NPI (optional, speeds up verification)<input name="npi" className="field" inputMode="numeric" pattern="\d{10}" /></label>
           <p className="text-sm text-muted">Practices never see your Lounge posts. Anonymous posts show only your role and region.</p>
           {cState?.error && <p role="alert" className="text-sm text-red-700">{cState.error}</p>}
-          <button className="btn" disabled={cPending}>{cPending ? "Creating account…" : "Create account and start verification"}</button>
+          <button className="btn" disabled={cPending}>{cPending ? "Creating account…" : "Create account"}</button>
         </form>
       ) : (
         <form action={pAction} className="card flex flex-col gap-4">
@@ -65,12 +66,8 @@ export default function SignupForms({ initial, plan }: { initial: "clinician" | 
             <label className="label">City<input name="city" className="field" required /></label>
             <label className="label">State<StateSelect name="state" /></label>
           </div>
-          <label className="label">Plan
-            <select name="plan" className="field" defaultValue={PLANS.some((p) => p.id === plan) ? plan : "SOLO"}>
-              {PLANS.map((p) => <option key={p.id} value={p.id}>{p.name}, {dollars(p.monthlyCents)} a month</option>)}
-            </select>
-          </label>
-          <p className="text-sm text-muted">Compare plans and guarantees on the <Link href="/pricing" className="underline">pricing page</Link>. Hire and locums fees are the same on every plan.</p>
+          <input type="hidden" name="plan" value={chosen.id} />
+          <p className="text-sm text-muted">{chosen.name} plan, {dollars(chosen.monthlyCents)} a month. <Link href="/pricing" className="underline">Change plan</Link></p>
           {pState?.error && <p role="alert" className="text-sm text-red-700">{pState.error}</p>}
           <button className="btn" disabled={pPending}>{pPending ? "Creating account…" : "Create practice account"}</button>
         </form>

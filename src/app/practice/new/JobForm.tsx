@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { postJob } from "../../actions/jobs";
 import { JOB_TYPES, PROFESSIONS, STATES } from "@/lib/labels";
 
-export default function JobForm() {
+export default function JobForm({ city, state: home }: { city: string; state: string }) {
   const [state, action, pending] = useActionState(postJob, undefined);
   const [type, setType] = useState("LOCUMS");
   const unit = type === "PERMANENT" ? "per year" : "per hour";
@@ -24,13 +24,13 @@ export default function JobForm() {
       </div>
       <label className="label">Job title<input name="title" className="field" required placeholder="Orthopedic surgeon, weekend call coverage" /></label>
       <div className="grid grid-cols-2 gap-3">
-        <label className="label">City<input name="city" className="field" required /></label>
-        <label className="label">State<select name="state" className="field" required>{STATES.map((s) => <option key={s}>{s}</option>)}</select></label>
+        <label className="label">City<input name="city" className="field" required defaultValue={city} /></label>
+        <label className="label">State<select name="state" className="field" required defaultValue={home}>{STATES.map((s) => <option key={s}>{s}</option>)}</select></label>
       </div>
       <label className="label">Description<textarea name="description" rows={4} className="field" required /></label>
       <div className="grid grid-cols-2 gap-3">
-        <label className="label">Clinician pay from ($ {unit})<input name="payMin" type="number" min="1" step="0.01" className="field" required /></label>
-        <label className="label">Clinician pay to ($ {unit})<input name="payMax" type="number" min="1" step="0.01" className="field" required /></label>
+        <label className="label">Clinician pay ($ {unit})<input name="payMin" type="number" min="1" step="0.01" className="field" required /></label>
+        <label className="label">Up to (optional)<input name="payMax" type="number" min="1" step="0.01" className="field" /></label>
       </div>
       {state?.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}
       <button className="btn" disabled={pending}>{pending ? "Posting…" : "Post role"}</button>
