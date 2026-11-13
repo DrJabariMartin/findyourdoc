@@ -38,6 +38,7 @@ Every pull request runs lint, type checks, tests and a build in GitHub Actions (
 | `SESSION_SECRET` | Signs login cookies. At least 16 random characters. |
 | `STORAGE_DIR` | Where credential documents are stored. Keep it outside the web root. |
 | `APP_URL` | Public address used in email links. |
+| `LOCUMS_STATES` | Comma-separated states where practices may post locums. Unset allows all (development). In production it starts empty; see the launch market section of [docs/launch.md](docs/launch.md). |
 | `EMAIL_TRANSPORT` | `log` prints emails to the server log (development). `hold` keeps them queued (production default). `ses` sends through Amazon SES; see [docs/launch.md](docs/launch.md). |
 | `AUTOMATION_SECRET` | Protects `/api/automations`. At least 24 random characters. |
 | `EMAIL_FROM` | Sender address for outgoing email. |
@@ -99,9 +100,8 @@ The rules live in `src/lib/automation/rules.ts` (tested in `tests/automation.tes
 This is a first version. The chosen launch setup, costs and steps are in [docs/launch.md](docs/launch.md). Before launch:
 
 - **Hosting:** HIPAA-eligible hosting and database with a signed business associate agreement. Appointment records contain protected health information. Switch Prisma's provider to `postgresql`.
-- **Separate the handle vault** into its own database with its own credentials.
-- **Email:** turn on Amazon SES under the AWS BAA (`EMAIL_TRANSPORT="ses"`, see [docs/launch.md](docs/launch.md)). Add SMS reminders and email address verification.
+- **Email:** turn on Amazon SES under the AWS BAA (`EMAIL_TRANSPORT="ses"`, see [docs/launch.md](docs/launch.md)). Add email address verification.
 - **Document storage:** move credential documents from local disk to encrypted object storage covered by the same agreement.
-- **Automated primary-source license checks** to speed up the verification queue.
-- **Shared rate limits:** with more than one server, move the counters from memory to Redis or the database.
-- **Legal review** of pricing, terms, privacy policy and the booking consent text by healthcare counsel in the launch state.
+- **Legal review** of pricing, terms, privacy policy and the booking consent text by healthcare counsel, for Maryland first (the pilot is there), then DC and Virginia before each opens.
+
+Later, not needed for launch: SMS reminders, automated license checks, shared rate limits (only with more than one server), and a separate database for the handle vault.

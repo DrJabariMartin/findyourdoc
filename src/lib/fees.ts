@@ -76,7 +76,9 @@ export const BOOKING_FEE_CENTS = 4_000; // $40
 // per-patient fee tied to those patients could be treated as payment for
 // referrals under the federal Anti-Kickback Statute. Zocdoc took the same
 // approach in OIG Advisory Opinion 19-04. Ranking ignores this entirely.
-const GOVERNMENT_PLAN = /medicare|medicaid|medi-cal|\bchip\b|peachcare|tricare|champva|\bva\b|veterans|indian health/i;
+// Includes the launch-market names: Maryland HealthChoice and MCHP, Virginia Cardinal Care and FAMIS,
+// DC Healthy Families and DC Healthcare Alliance, Georgia PeachCare.
+const GOVERNMENT_PLAN = /medicare|medicaid|medi-cal|\bchip\b|peachcare|healthchoice|\bmchp\b|cardinal care|\bfamis\b|dc healthy families|healthcare alliance|tricare|champva|\bva\b|veterans|indian health/i;
 
 export function isGovernmentPlan(insurance: string | null | undefined): boolean {
   return !!insurance && GOVERNMENT_PLAN.test(insurance);

@@ -4,6 +4,7 @@ import { billRateCents, hourlyFeeCents, conversionFeeCents, listingMoney, PERMAN
 import { findIdentifiers } from "../src/lib/identifiers";
 import { isValidNpi } from "../src/lib/npi";
 import { anonLabel } from "../src/lib/labels";
+import { locumsAllowed } from "../src/lib/markets";
 
 test("locums: clinician keeps 100%, practice pays 12% on top", () => {
   assert.equal(billRateCents(25_000), 28_000);
@@ -89,4 +90,20 @@ test("times show in the office's time zone", () => {
   assert.equal(fmtSlot(d, "GA", "time"), "9:00 AM");
   assert.equal(fmtSlot(d, "TX", "time"), "8:00 AM");
   assert.equal(fmtSlot(d, "CA", "time"), "6:00 AM");
+});
+
+test("launch-market government plans never pay the booking fee", () => {
+  for (const p of ["Maryland HealthChoice", "MCHP", "Cardinal Care", "FAMIS Plus", "DC Healthy Families", "DC Healthcare Alliance"]) assert.ok(isGovernmentPlan(p), p);
+  for (const p of ["CareFirst BlueChoice", "Anthem", "Aetna"]) assert.ok(!isGovernmentPlan(p), p);
+});
+
+test("DC, Maryland and Virginia show as Mid-Atlantic", () => {
+  for (const s of ["DC", "MD", "VA"]) assert.equal(anonLabel("Orthopedic surgeon", "PHYSICIAN", s), "Orthopedic surgeon, Mid-Atlantic");
+});
+
+test("locums is gated by LOCUMS_STATES", () => {
+  assert.ok(locumsAllowed("MD", undefined));
+  assert.ok(!locumsAllowed("MD", ""));
+  assert.ok(locumsAllowed("va", "VA, GA"));
+  assert.ok(!locumsAllowed("DC", "VA,GA"));
 });

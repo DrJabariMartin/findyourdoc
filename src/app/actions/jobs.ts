@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { requirePractice, requireVerifiedClinician } from "@/lib/session";
 import { PROFESSIONS, STATES } from "@/lib/labels";
 import { onJobPosted, safely } from "@/lib/automation/jobs";
+import { locumsAllowed } from "@/lib/markets";
 
 export type JobState = { error?: string } | undefined;
 
@@ -27,6 +28,8 @@ export async function postJob(_: JobState, form: FormData): Promise<JobState> {
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
   if (d.payMax < d.payMin) return { error: "The top of the pay range must be at least the bottom" };
+  if (d.type === "LOCUMS" && !locumsAllowed(d.state))
+    return { error: "Locums isn't open in that state yet. You can post it as permanent or per diem." };
   const payUnit = d.type === "PERMANENT" ? "YEAR" : "HOUR";
   const job = await db.job.create({
     data: {

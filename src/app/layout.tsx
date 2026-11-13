@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Inter, Manrope } from "next/font/google";
+import localFont from "next/font/local";
 import { currentUser } from "@/lib/session";
 import { logout } from "./actions/auth";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const manrope = Manrope({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-manrope" });
+// Self-hosted so builds never depend on fonts.googleapis.com (and no visitor IP goes to Google).
+const inter = localFont({ src: "./fonts/inter.woff2", weight: "100 900", variable: "--font-inter", display: "swap" });
+const manrope = localFont({ src: "./fonts/manrope.woff2", weight: "200 800", variable: "--font-manrope", display: "swap" });
 
 export const metadata: Metadata = {
   title: "FindYourDoc",
