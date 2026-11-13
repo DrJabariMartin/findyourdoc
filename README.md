@@ -85,6 +85,16 @@ The rules live in `src/lib/automation/rules.ts` (tested in `tests/automation.tes
 
 **Email:** set `EMAIL_TRANSPORT`. `log` prints emails (development); `hold` (the production default) keeps them queued; `ses` sends through Amazon SES and also needs `EMAIL_FROM` and `AWS_REGION`. Use `ses` only after the AWS BAA is accepted and the sending domain is verified. See [docs/launch.md](docs/launch.md).
 
+## AI Opener (social DMs)
+
+`POST /api/meta/webhook` answers Instagram and Facebook DMs and comments for the Sell By Chat marketing system. It is off until `OPENER_MODE` is set.
+
+- **Before any AI sees a message** (`src/lib/opener/guard.ts`): crisis words get the 988/911 reply and an urgent email to Dr. Martin; comment keywords (RATE, CONTRACT, HIRE, CREDENTIAL, PRACTICE, BOOK) get their guide; anything that looks like a patient gets a fixed booking template. Patient messages are never sent to the AI and never copied into an email or log.
+- **The AI** (`src/lib/opener/ai.ts`) reads only clinician, practice and other messages, using `prompts/ai-opener-dm-agent.md`. A final check turns any reply with an unapproved price or percentage, a patient classification or an over-long message into a draft for Dr. Martin.
+- **Modes**: `off` (default), `draft` (nothing is sent; Dr. Martin gets each proposed reply at `OPENER_NOTIFY_EMAIL`), `send` (templates and checked AI replies go out; everything else is emailed). Run `draft` for the first two weeks.
+- Every automated reply ends with the AI disclosure. Replies only go out inside Meta's 24-hour window, as replies to the person's own message or comment.
+- **Setup**: a Meta app with Instagram and Messenger messaging permissions on the FindYourDoc business account, callback URL `https://<APP_URL>/api/meta/webhook`, and `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_PAGE_TOKEN`, `ANTHROPIC_API_KEY` set.
+
 ## Before real patients or clinicians use it
 
 This is a first version. The chosen launch setup, costs and steps are in [docs/launch.md](docs/launch.md). Before launch:
