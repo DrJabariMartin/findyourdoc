@@ -26,10 +26,10 @@ function Account() {
 }
 
 export default function SignupForms({ initial, plan }: { initial: "clinician" | "practice"; plan?: string }) {
+  const chosen = PLANS.find((p) => p.id === plan) ?? PLANS[0];
   const [tab, setTab] = useState(initial);
   const [cState, cAction, cPending] = useActionState(signupClinician, undefined);
   const [pState, pAction, pPending] = useActionState(signupPractice, undefined);
-  const chosen = PLANS.find((p) => p.id === plan) ?? PLANS[0];
   const tabClass = (on: boolean) =>
     `px-4 py-2.5 rounded-full border font-semibold text-sm cursor-pointer ${on ? "bg-brand text-white border-brand" : "bg-white border-field"}`;
 
@@ -56,7 +56,7 @@ export default function SignupForms({ initial, plan }: { initial: "clinician" | 
           <label className="label">NPI (optional, speeds up verification)<input name="npi" className="field" inputMode="numeric" pattern="\d{10}" /></label>
           <p className="text-sm text-muted">Practices never see your Lounge posts. Anonymous posts show only your role and region.</p>
           {cState?.error && <p role="alert" className="text-sm text-red-700">{cState.error}</p>}
-          <button className="btn" disabled={cPending}>{cPending ? "Creating account…" : "Create account"}</button>
+          <button className="btn" disabled={cPending}>{cPending ? "Creating account…" : "Create account and start verification"}</button>
         </form>
       ) : (
         <form action={pAction} className="card flex flex-col gap-4">
